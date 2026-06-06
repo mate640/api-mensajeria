@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mensajería Service</title>
+    <style>
+      :root {
+        --bg: #eef5ef;
+        --card: #ffffff;
+        --text: #17311d;
+        --muted: #5d7264;
+        --line: #d6e4d8;
+        --green: #1e8a38;
+        --green-light: #e6f4ea;
+        --amber: #b45309;
+        --amber-light: #fef3c7;
+        --red: #b91c1c;
+        --red-light: #fee2e2;
+        --blue: #1d4ed8;
+        --blue-light: #dbeafe;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: radial-gradient(circle at top, #dff3e4 0%, var(--bg) 52%);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 32px 16px;
+      }
+
+      .container {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+
+      header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      header span {
+        font-size: 0.8rem;
+        color: var(--muted);
+        background: var(--line);
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 24px;
+        box-shadow: 0 4px 16px rgba(21, 43, 27, 0.06);
+      }
+
+      .card h2 {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+
+      /* Status rows */
+      .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .status-row:last-child { border-bottom: none; }
+
+      .status-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .icon { font-size: 1.1rem; }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+
+      .badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.7;
+      }
+
+      .badge.green  { color: var(--green);  background: var(--green-light); }
+      .badge.amber  { color: var(--amber);  background: var(--amber-light); }
+      .badge.red    { color: var(--red);    background: var(--red-light);   }
+      .badge.muted  { color: var(--muted);  background: var(--line);        }
+
+      .status-detail {
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      /* Endpoints */
+      .endpoint-group {
+        margin-bottom: 16px;
+      }
+
+      .endpoint-group:last-child { margin-bottom: 0; }
+
+      .group-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+        padding-left: 4px;
+      }
+
+      .endpoint {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 12px;
+        border-radius: 8px;
+        margin-bottom: 4px;
+        transition: background 0.15s;
+      }
+
+      .endpoint:hover { background: var(--bg); }
+
+      .method {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 5px;
+        min-width: 42px;
+        text-align: center;
+      }
+
+      .method.get  { color: var(--blue);  background: var(--blue-light);   }
+      .method.post { color: var(--amber); background: var(--amber-light);  }
+
+      .path {
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 0.88rem;
+        color: var(--text);
+        text-decoration: none;
+        flex: 1;
+      }
+
+      a.path:hover { text-decoration: underline; color: var(--green); }
+
+      .desc {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .refresh-hint {
+        text-align: right;
+        font-size: 0.72rem;
+        color: var(--muted);
+        padding-right: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+
+      <header>
+        <h1>mensajeria-service</h1>
+        <span id="uptime">cargando...</span>
+      </header>
+
+      <!-- Estado -->
+      <div class="card">
+        <h2>Estado</h2>
+
+        <div class="status-row">
+          <div>
+            <div class="status-label">
+              <span class="icon">💬</span> WhatsApp
+            </div>
+            <div class="status-detail" id="wa-detail"></div>
+          </div>
+          <span id="wa-badge" class="badge muted">...</span>
+        </div>
+
+        <div class="status-row">
+          <div>
+            <div class="status-label">
+              <span class="icon">✈️</span> Telegram
+            </div>
+            <div class="status-detail" id="tg-detail"></div>
+          </div>
+          <span id="tg-badge" class="badge muted">...</span>
+        </div>
+      </div>
+
+      <!-- Endpoints -->
+      <div class="card">
+        <h2>Endpoints</h2>
+
+        <div class="endpoint-group">
+          <div class="group-title">General</div>
+          <div class="endpoint">
+            <span class="method get">GET</span>
+            <a class="path" href="/health" target="_blank">/health</a>
+            <span class="desc">Health check</span>
+          </div>
+        </div>
+
+        <div class="endpoint-group">
+          <div class="group-title">WhatsApp</div>
+          <div class="endpoint">
+            <span class="method get">GET</span>
+            <a class="path" href="/whatsapp/estado" target="_blank">/whatsapp/estado</a>
+            <span class="desc">Estado de la conexión</span>
+          </div>
+          <div class="endpoint">
+            <span class="method get">GET</span>
+            <a class="path" href="/whatsapp/qr" target="_blank">/whatsapp/qr</a>
+            <span class="desc">QR en base64</span>
+          </div>
+          <div class="endpoint">
+            <span class="method get">GET</span>
+            <a class="path" href="/whatsapp/login" target="_blank">/whatsapp/login</a>
+            <span class="desc">Página para escanear QR</span>
+          </div>
+          <div class="endpoint">
+            <span class="method get">GET</span>
+            <a class="path" href="/whatsapp/grupos" target="_blank">/whatsapp/grupos</a>
+            <span class="desc">Listar grupos</span>
+          </div>
+          <div class="endpoint">
+            <span class="method get">GET</span>
+            <a class="path" href="/whatsapp/reconectar" target="_blank">/whatsapp/reconectar</a>
+            <span class="desc">Borrar sesión y generar nuevo QR</span>
+          </div>
+          <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="path">/whatsapp/enviar-sync</span>
+            <span class="desc">Enviar mensajes (espera resultado)</span>
+          </div>
+          <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="path">/whatsapp/enviar</span>
+            <span class="desc">Enviar mensajes (asíncrono, devuelve jobId)</span>
+          </div>
+        </div>
+
+        <div class="endpoint-group">
+          <div class="group-title">Telegram</div>
+          <div class="endpoint">
+            <span class="method get">GET</span>
+            <a class="path" href="/telegram/estado" target="_blank">/telegram/estado</a>
+            <span class="desc">Estado del bot</span>
+          </div>
+          <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="path">/telegram/enviar-sync</span>
+            <span class="desc">Enviar mensajes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="refresh-hint" id="refresh-hint">actualizando estado...</div>
+    </div>
+
+    <script>
+      const startTime = Date.now();
+
+      function fmt(ms) {
+        const s = Math.floor(ms / 1000);
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60);
+        if (m < 60) return `${m}m ${s % 60}s`;
+        return `${Math.floor(m / 60)}h ${m % 60}m`;
+      }
+
+      function badgeClass(estado) {
+        if (["conectado", "configurado"].includes(estado)) return "green";
+        if (["conectando", "qr"].includes(estado)) return "amber";
+        if (["desconectado", "error_configuracion"].includes(estado)) return "red";
+        return "muted";
+      }
+
+      function badgeLabel(estado) {
+        const map = {
+          conectado: "conectado",
+          conectando: "conectando...",
+          desconectado: "desconectado",
+          qr: "esperando QR",
+          configurado: "configurado",
+          no_configurado: "no configurado",
+          error_configuracion: "error de config"
+        };
+        return map[estado] || estado;
+      }
+
+      async function refreshStatus() {
+        try {
+          const [waRes, tgRes] = await Promise.all([
+            fetch("/whatsapp/estado"),
+            fetch("/telegram/estado")
+          ]);
+
+          const wa = await waRes.json();
+          const tg = await tgRes.json();
+
+          const waBadge = document.getElementById("wa-badge");
+          waBadge.className = `badge ${badgeClass(wa.estado)}`;
+          waBadge.textContent = badgeLabel(wa.estado);
+
+          const waDetail = document.getElementById("wa-detail");
+          waDetail.textContent = wa.estado === "qr"
+            ? "Abrí /whatsapp/login para escanear"
+            : "";
+
+          const tgBadge = document.getElementById("tg-badge");
+          tgBadge.className = `badge ${badgeClass(tg.estado)}`;
+          tgBadge.textContent = badgeLabel(tg.estado);
+
+          const tgDetail = document.getElementById("tg-detail");
+          tgDetail.textContent = tg.bot ? `@${tg.bot}` : (tg.detalle || "");
+
+          const now = new Date().toLocaleTimeString("es-AR");
+          document.getElementById("refresh-hint").textContent = `última actualización: ${now}`;
+        } catch {
+          document.getElementById("refresh-hint").textContent = "error al consultar estado";
+        }
+
+        document.getElementById("uptime").textContent = `activo hace ${fmt(Date.now() - startTime)}`;
+      }
+
+      refreshStatus();
+      setInterval(refreshStatus, 5000);
+    </script>
+  </body>
+</html>

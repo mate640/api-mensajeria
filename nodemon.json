@@ -1,0 +1,19 @@
+{
+  "watch": [
+    "index.js",
+    "routes",
+    "services",
+    "utils",
+    "public"
+  ],
+  "ext": "js,json,html",
+  "ignore": [
+    "node_modules",
+    "wa_auth",
+    "data",
+    "*.log",
+    "*.tgz"
+  ],
+  "legacyWatch": true,
+  "delay": "500"
+}

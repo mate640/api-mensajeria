@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatsApp Login</title>
+    <style>
+      :root {
+        --bg: #eef5ef;
+        --card: #ffffff;
+        --text: #17311d;
+        --muted: #5d7264;
+        --line: #d6e4d8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: radial-gradient(circle at top, #dff3e4 0%, var(--bg) 52%);
+        color: var(--text);
+      }
+
+      .card {
+        width: 100%;
+        max-width: 460px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 28px;
+        box-shadow: 0 18px 44px rgba(21, 43, 27, 0.1);
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+      }
+
+      p {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .status {
+        margin: 18px 0;
+        font-weight: 700;
+      }
+
+      .qr {
+        min-height: 280px;
+        display: grid;
+        place-items: center;
+        border: 1px dashed #b8cfbd;
+        border-radius: 16px;
+        background: #f8fbf8;
+        overflow: hidden;
+      }
+
+      .qr img {
+        width: min(100%, 280px);
+        height: auto;
+      }
+
+      .btn-reconectar {
+        display: none;
+        margin-top: 18px;
+        padding: 10px 24px;
+        background: #25a244;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .btn-reconectar:hover {
+        background: #1e8a38;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Vincular WhatsApp</h1>
+      <p>Escaneá el QR con tu teléfono. La pantalla consulta el estado automáticamente.</p>
+      <div class="status" id="status">Consultando estado...</div>
+      <div class="qr" id="qr">Esperando QR...</div>
+      <a id="btn-reconectar" class="btn-reconectar" href="/whatsapp/reconectar">Reconectar / Nuevo QR</a>
+    </main>
+
+    <script>
+      const statusEl = document.getElementById("status");
+      const qrEl = document.getElementById("qr");
+      const btnReconectar = document.getElementById("btn-reconectar");
+
+      async function refresh() {
+        try {
+          const [estadoRes, qrRes] = await Promise.all([
+            fetch("/whatsapp/estado"),
+            fetch("/whatsapp/qr")
+          ]);
+
+          const estado = await estadoRes.json();
+          const qr = await qrRes.json();
+
+          statusEl.textContent = `Estado: ${estado.estado}`;
+
+          if (estado.estado === "conectado" || qr.conectado) {
+            btnReconectar.style.display = "none";
+            qrEl.textContent = "Sesion activa. Redirigiendo...";
+            setTimeout(() => {
+              window.location.href = "/";
+            }, 1200);
+            return;
+          }
+
+          if (qr.qr) {
+            btnReconectar.style.display = "none";
+            qrEl.innerHTML = `<img src="${qr.qr}" alt="QR WhatsApp" />`;
+            return;
+          }
+
+          if (estado.estado === "desconectado") {
+            btnReconectar.style.display = "inline-block";
+          }
+
+          qrEl.textContent = qr.mensaje || "Esperando QR...";
+        } catch (error) {
+          statusEl.textContent = "Estado: error";
+          qrEl.textContent = "No se pudo consultar el servicio.";
+          btnReconectar.style.display = "inline-block";
+        }
+      }
+
+      refresh();
+      setInterval(refresh, 3000);
+    </script>
+  </body>
+</html>

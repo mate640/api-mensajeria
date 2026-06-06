@@ -1,0 +1,11 @@
+node_modules/
+.env
+bot_telegram.txt
+wa_auth/*
+!wa_auth/.gitkeep
+data/*.json
+npm-debug.log*
+*.log
+*.tgz
+.DS_Store
+Thumbs.db
