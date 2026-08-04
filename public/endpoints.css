@@ -1,0 +1,91 @@
+.api-card {
+  margin-top: 22px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card, var(--surface, #fff));
+  box-shadow: 0 5px 18px rgba(21, 43, 27, 0.06);
+}
+
+.api-card-heading {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.api-endpoint {
+  display: grid;
+  grid-template-columns: 44px minmax(180px, 1fr) minmax(180px, auto);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.api-endpoint:hover {
+  background: var(--bg, var(--surface-soft, #f4f7f5));
+}
+
+.api-method {
+  min-width: 42px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.api-method.get {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.api-method.post {
+  color: #a15c00;
+  background: #fff1c7;
+}
+
+.api-method.delete {
+  color: #b42318;
+  background: #fee2e2;
+}
+
+.api-path {
+  min-width: 0;
+  color: var(--text);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+a.api-path:hover {
+  color: var(--green, var(--blue, #1e8a38));
+  text-decoration: underline;
+}
+
+.api-description {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+@media (max-width: 680px) {
+  .api-card {
+    padding: 18px;
+  }
+
+  .api-endpoint {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .api-description {
+    grid-column: 2;
+    text-align: left;
+  }
+}

@@ -3,7 +3,11 @@ node_modules/
 bot_telegram.txt
 wa_auth/*
 !wa_auth/.gitkeep
+wa_instances/
 data/*.json
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
 npm-debug.log*
 *.log
 *.tgz

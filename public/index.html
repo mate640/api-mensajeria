@@ -75,6 +75,39 @@
         margin-bottom: 14px;
       }
 
+      .channel + .channel {
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      .channel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 5px;
+      }
+
+      .channel-header h3 {
+        font-size: 1rem;
+        font-weight: 750;
+      }
+
+      .channel-link {
+        color: var(--green);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .channel-link:hover { text-decoration: underline; }
+
+      .channel-list {
+        padding-left: 12px;
+        border-left: 3px solid var(--green-light);
+      }
+
       /* Status rows */
       .status-row {
         display: flex;
@@ -86,12 +119,30 @@
 
       .status-row:last-child { border-bottom: none; }
 
+      a.status-row {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      a.status-row:hover .status-label {
+        color: var(--green);
+      }
+
       .status-label {
         display: flex;
         align-items: center;
         gap: 10px;
         font-weight: 600;
         font-size: 0.95rem;
+      }
+
+      .status-information {
+        min-width: 0;
+      }
+
+      .status-name {
+        font-weight: 650;
+        overflow-wrap: anywhere;
       }
 
       .icon { font-size: 1.1rem; }
@@ -126,68 +177,16 @@
         margin-top: 2px;
       }
 
-      /* Endpoints */
-      .endpoint-group {
-        margin-bottom: 16px;
-      }
-
-      .endpoint-group:last-child { margin-bottom: 0; }
-
-      .group-title {
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin-bottom: 8px;
-        padding-left: 4px;
-      }
-
-      .endpoint {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 9px 12px;
-        border-radius: 8px;
-        margin-bottom: 4px;
-        transition: background 0.15s;
-      }
-
-      .endpoint:hover { background: var(--bg); }
-
-      .method {
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        padding: 2px 7px;
-        border-radius: 5px;
-        min-width: 42px;
-        text-align: center;
-      }
-
-      .method.get  { color: var(--blue);  background: var(--blue-light);   }
-      .method.post { color: var(--amber); background: var(--amber-light);  }
-
-      .path {
-        font-family: "Cascadia Code", "Consolas", monospace;
-        font-size: 0.88rem;
-        color: var(--text);
-        text-decoration: none;
-        flex: 1;
-      }
-
-      a.path:hover { text-decoration: underline; color: var(--green); }
-
-      .desc {
-        font-size: 0.78rem;
-        color: var(--muted);
-      }
-
       .refresh-hint {
         text-align: right;
         font-size: 0.72rem;
         color: var(--muted);
         padding-right: 4px;
+      }
+
+      @media (max-width: 600px) {
+        .card { padding: 18px; }
+        .status-row { gap: 10px; }
       }
     </style>
   </head>
@@ -199,96 +198,57 @@
         <span id="uptime">cargando...</span>
       </header>
 
-      <!-- Estado -->
+      <!-- Estado por canal -->
       <div class="card">
-        <h2>Estado</h2>
+        <h2>Canales</h2>
 
-        <div class="status-row">
-          <div>
-            <div class="status-label">
-              <span class="icon">💬</span> WhatsApp
+        <section class="channel">
+          <div class="channel-header">
+            <h3>WhatsApp</h3>
+            <a class="channel-link" href="/whatsapp/panel">Administrar</a>
+          </div>
+          <div id="wa-status-list" class="channel-list">
+            <div class="status-row">
+              <div class="status-detail">Consultando instancias...</div>
             </div>
-            <div class="status-detail" id="wa-detail"></div>
           </div>
-          <span id="wa-badge" class="badge muted">...</span>
-        </div>
+        </section>
 
-        <div class="status-row">
-          <div>
-            <div class="status-label">
-              <span class="icon">✈️</span> Telegram
+        <section class="channel">
+          <div class="channel-header">
+            <h3>Telegram</h3>
+            <a class="channel-link" href="/telegram/panel">Administrar</a>
+          </div>
+          <div id="tg-status-list" class="channel-list">
+            <div class="status-row">
+              <div class="status-detail">Consultando bot...</div>
             </div>
-            <div class="status-detail" id="tg-detail"></div>
           </div>
-          <span id="tg-badge" class="badge muted">...</span>
-        </div>
-      </div>
+        </section>
 
-      <!-- Endpoints -->
-      <div class="card">
-        <h2>Endpoints</h2>
+        <section class="channel">
+          <div class="channel-header">
+            <h3>Gmail</h3>
+            <a class="channel-link" href="/gmail/panel">Administrar</a>
+          </div>
+          <div id="gmail-status-list" class="channel-list">
+            <div class="status-row">
+              <div class="status-detail">Consultando cuentas...</div>
+            </div>
+          </div>
+        </section>
 
-        <div class="endpoint-group">
-          <div class="group-title">General</div>
-          <div class="endpoint">
-            <span class="method get">GET</span>
-            <a class="path" href="/health" target="_blank">/health</a>
-            <span class="desc">Health check</span>
+        <section class="channel">
+          <div class="channel-header">
+            <h3>IA / Gemini</h3>
+            <a class="channel-link" href="/ia/panel">Probar</a>
           </div>
-        </div>
-
-        <div class="endpoint-group">
-          <div class="group-title">WhatsApp</div>
-          <div class="endpoint">
-            <span class="method get">GET</span>
-            <a class="path" href="/whatsapp/estado" target="_blank">/whatsapp/estado</a>
-            <span class="desc">Estado de la conexión</span>
+          <div id="ia-status-list" class="channel-list">
+            <div class="status-row">
+              <div class="status-detail">Consultando Gemini...</div>
+            </div>
           </div>
-          <div class="endpoint">
-            <span class="method get">GET</span>
-            <a class="path" href="/whatsapp/qr" target="_blank">/whatsapp/qr</a>
-            <span class="desc">QR en base64</span>
-          </div>
-          <div class="endpoint">
-            <span class="method get">GET</span>
-            <a class="path" href="/whatsapp/login" target="_blank">/whatsapp/login</a>
-            <span class="desc">Página para escanear QR</span>
-          </div>
-          <div class="endpoint">
-            <span class="method get">GET</span>
-            <a class="path" href="/whatsapp/grupos" target="_blank">/whatsapp/grupos</a>
-            <span class="desc">Listar grupos</span>
-          </div>
-          <div class="endpoint">
-            <span class="method get">GET</span>
-            <a class="path" href="/whatsapp/reconectar" target="_blank">/whatsapp/reconectar</a>
-            <span class="desc">Borrar sesión y generar nuevo QR</span>
-          </div>
-          <div class="endpoint">
-            <span class="method post">POST</span>
-            <span class="path">/whatsapp/enviar-sync</span>
-            <span class="desc">Enviar mensajes (espera resultado)</span>
-          </div>
-          <div class="endpoint">
-            <span class="method post">POST</span>
-            <span class="path">/whatsapp/enviar</span>
-            <span class="desc">Enviar mensajes (asíncrono, devuelve jobId)</span>
-          </div>
-        </div>
-
-        <div class="endpoint-group">
-          <div class="group-title">Telegram</div>
-          <div class="endpoint">
-            <span class="method get">GET</span>
-            <a class="path" href="/telegram/estado" target="_blank">/telegram/estado</a>
-            <span class="desc">Estado del bot</span>
-          </div>
-          <div class="endpoint">
-            <span class="method post">POST</span>
-            <span class="path">/telegram/enviar-sync</span>
-            <span class="desc">Enviar mensajes</span>
-          </div>
-        </div>
+        </section>
       </div>
 
       <div class="refresh-hint" id="refresh-hint">actualizando estado...</div>
@@ -307,8 +267,21 @@
 
       function badgeClass(estado) {
         if (["conectado", "configurado"].includes(estado)) return "green";
-        if (["conectando", "qr"].includes(estado)) return "amber";
-        if (["desconectado", "error_configuracion"].includes(estado)) return "red";
+        if ([
+          "conectando",
+          "inicializando",
+          "generando_codigo",
+          "esperando_vinculacion",
+          "pendiente_vinculacion",
+          "qr"
+        ].includes(estado)) return "amber";
+        if ([
+          "desconectado",
+          "error",
+          "numero_incorrecto",
+          "error_configuracion",
+          "error_almacenamiento"
+        ].includes(estado)) return "red";
         return "muted";
       }
 
@@ -318,38 +291,184 @@
           conectando: "conectando...",
           desconectado: "desconectado",
           qr: "esperando QR",
+          inicializando: "inicializando...",
+          generando_codigo: "generando código...",
+          esperando_vinculacion: "esperando vinculación",
+          pendiente_vinculacion: "sin vincular",
+          numero_incorrecto: "número incorrecto",
+          error: "error",
           configurado: "configurado",
           no_configurado: "no configurado",
-          error_configuracion: "error de config"
+          error_configuracion: "error de config",
+          error_almacenamiento: "error de datos"
         };
         return map[estado] || estado;
       }
 
+      function createStatusRow({ href, name, detail, estado }) {
+        const row = document.createElement(href ? "a" : "div");
+        row.className = "status-row";
+        if (href) row.href = href;
+
+        const information = document.createElement("div");
+        information.className = "status-information";
+        const label = document.createElement("div");
+        label.className = "status-name";
+        label.textContent = name;
+        const statusDetail = document.createElement("div");
+        statusDetail.className = "status-detail";
+        statusDetail.textContent = detail || "";
+        information.append(label, statusDetail);
+
+        const badge = document.createElement("span");
+        badge.className = `badge ${badgeClass(estado)}`;
+        badge.textContent = badgeLabel(estado);
+
+        row.append(information, badge);
+        return row;
+      }
+
+      function renderWhatsAppStatus(data) {
+        const container = document.getElementById("wa-status-list");
+        container.replaceChildren();
+
+        if (data.modo !== "multi") {
+          container.appendChild(
+            createStatusRow({
+              href: data.estado === "qr" ? "/whatsapp/login" : "/whatsapp/panel",
+              name: "WhatsApp principal",
+              detail:
+                data.estado === "qr"
+                  ? "Abrí esta cuenta para escanear el QR"
+                  : "Instancia del modo clásico",
+              estado: data.estado
+            })
+          );
+          return;
+        }
+
+        const instances = Array.isArray(data.instancias) ? data.instancias : [];
+        if (!instances.length) {
+          container.appendChild(
+            createStatusRow({
+              href: "/whatsapp/panel",
+              name: "Crear primera instancia",
+              detail: "Todavía no hay números cargados",
+              estado: "no_configurado"
+            })
+          );
+          return;
+        }
+
+        for (const instance of instances) {
+          container.appendChild(
+            createStatusRow({
+              href: `/whatsapp/panel?instancia=${encodeURIComponent(instance.id)}`,
+              name: instance.nombre,
+              detail: `+${instance.numero}`,
+              estado: instance.estado
+            })
+          );
+        }
+      }
+
+      function renderTelegramStatus(data) {
+        const container = document.getElementById("tg-status-list");
+        container.replaceChildren();
+        container.appendChild(
+          createStatusRow({
+            name: data.bot ? `@${data.bot}` : "Bot de Telegram",
+            detail: data.bot
+              ? "Bot configurado para notificaciones"
+              : (data.detalle || "Todavía no hay un bot configurado"),
+            estado: data.estado
+          })
+        );
+      }
+
+      function renderGmailStatus(status, accountsData) {
+        const container = document.getElementById("gmail-status-list");
+        const accounts = Array.isArray(accountsData.cuentas)
+          ? accountsData.cuentas
+          : [];
+        container.replaceChildren();
+
+        if (!accounts.length) {
+          container.appendChild(
+            createStatusRow({
+              href: "/gmail/panel",
+              name: "Agregar cuenta",
+              detail: status.configurado
+                ? "Todavía no hay cuentas vinculadas"
+                : "Completá la configuración de Gmail",
+              estado: status.estado
+            })
+          );
+          return;
+        }
+
+        for (const account of accounts) {
+          container.appendChild(
+            createStatusRow({
+              href: "/gmail/panel",
+              name: account.identificacion,
+              detail: account.email,
+              estado: status.configurado ? "configurado" : status.estado
+            })
+          );
+        }
+      }
+
+      function renderIaStatus(data, responseOk) {
+        const container = document.getElementById("ia-status-list");
+        container.replaceChildren();
+
+        if (!responseOk) {
+          container.appendChild(
+            createStatusRow({
+              href: "/ia/panel",
+              name: "Gemini",
+              detail:
+                data.error ||
+                "No se pudo consultar el estado de la integracion",
+              estado: "error"
+            })
+          );
+          return;
+        }
+
+        container.appendChild(
+          createStatusRow({
+            href: "/ia/panel",
+            name: "Gemini",
+            detail: data.configurado
+              ? `Modelo: ${data.modelo}`
+              : "Falta configurar GEMINI_API_KEY",
+            estado: data.configurado ? "configurado" : "no_configurado"
+          })
+        );
+      }
+
       async function refreshStatus() {
         try {
-          const [waRes, tgRes] = await Promise.all([
+          const [waRes, tgRes, gmailRes, gmailAccountsRes, iaRes] = await Promise.all([
             fetch("/whatsapp/estado"),
-            fetch("/telegram/estado")
+            fetch("/telegram/estado"),
+            fetch("/gmail/estado"),
+            fetch("/gmail/cuentas"),
+            fetch("/ia/estado")
           ]);
 
           const wa = await waRes.json();
           const tg = await tgRes.json();
+          const gmail = await gmailRes.json();
+          const gmailAccounts = await gmailAccountsRes.json();
+          const ia = await iaRes.json();
 
-          const waBadge = document.getElementById("wa-badge");
-          waBadge.className = `badge ${badgeClass(wa.estado)}`;
-          waBadge.textContent = badgeLabel(wa.estado);
-
-          const waDetail = document.getElementById("wa-detail");
-          waDetail.textContent = wa.estado === "qr"
-            ? "Abrí /whatsapp/login para escanear"
-            : "";
-
-          const tgBadge = document.getElementById("tg-badge");
-          tgBadge.className = `badge ${badgeClass(tg.estado)}`;
-          tgBadge.textContent = badgeLabel(tg.estado);
-
-          const tgDetail = document.getElementById("tg-detail");
-          tgDetail.textContent = tg.bot ? `@${tg.bot}` : (tg.detalle || "");
+          renderWhatsAppStatus(wa);
+          renderTelegramStatus(tg);
+          renderGmailStatus(gmail, gmailAccounts);
+          renderIaStatus(ia, iaRes.ok);
 
           const now = new Date().toLocaleTimeString("es-AR");
           document.getElementById("refresh-hint").textContent = `última actualización: ${now}`;

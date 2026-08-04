@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administrador de Gmail</title>
+    <link rel="stylesheet" href="/endpoints.css" />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --text: #172033;
+        --muted: #667085;
+        --line: #e1e7ef;
+        --blue: #2563eb;
+        --blue-dark: #1d4ed8;
+        --blue-soft: #eaf1ff;
+        --green: #16803c;
+        --green-soft: #eaf8ef;
+        --red: #b42318;
+        --red-soft: #fff0ee;
+        --amber: #a15c00;
+        --amber-soft: #fff7e6;
+        --shadow: 0 18px 45px rgba(25, 39, 67, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 90% 0%, #e8f0ff 0, transparent 32rem),
+          var(--bg);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(960px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 34px 0 64px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 28px;
+      }
+
+      .back {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.92rem;
+      }
+
+      .back:hover {
+        color: var(--blue);
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .status-pill::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #98a2b3;
+      }
+
+      .status-pill.ready {
+        color: var(--green);
+        background: var(--green-soft);
+        border-color: #c9ead4;
+      }
+
+      .status-pill.ready::before {
+        background: var(--green);
+      }
+
+      .hero {
+        margin-bottom: 24px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--blue);
+        font-size: 0.78rem;
+        font-weight: 750;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 3.15rem);
+        line-height: 1.05;
+        letter-spacing: -0.045em;
+      }
+
+      .hero p:last-child {
+        max-width: 680px;
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.6;
+      }
+
+      .notice {
+        display: none;
+        margin-bottom: 20px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid;
+        line-height: 1.45;
+      }
+
+      .notice.show {
+        display: block;
+      }
+
+      .notice.success {
+        color: var(--green);
+        background: var(--green-soft);
+        border-color: #bfe3cb;
+      }
+
+      .notice.warning {
+        color: var(--amber);
+        background: var(--amber-soft);
+        border-color: #f2d6a1;
+      }
+
+      .notice.error {
+        color: var(--red);
+        background: var(--red-soft);
+        border-color: #f2c7c2;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.45fr);
+        gap: 22px;
+        align-items: start;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+      }
+
+      .form-card {
+        padding: 24px;
+        position: sticky;
+        top: 20px;
+      }
+
+      .card-heading {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .card-copy {
+        margin: 7px 0 20px;
+        color: var(--muted);
+        font-size: 0.87rem;
+        line-height: 1.5;
+      }
+
+      label {
+        display: block;
+        margin: 0 0 7px;
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      input {
+        width: 100%;
+        min-height: 44px;
+        margin-bottom: 16px;
+        padding: 10px 12px;
+        color: var(--text);
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
+
+      .hint {
+        margin: -9px 0 16px;
+        color: var(--muted);
+        font-size: 0.76rem;
+        line-height: 1.4;
+      }
+
+      .primary {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 10px;
+        color: #fff;
+        background: var(--blue);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .primary:hover {
+        background: var(--blue-dark);
+      }
+
+      .primary:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .accounts-card {
+        overflow: hidden;
+      }
+
+      .accounts-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .count {
+        min-width: 30px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        text-align: center;
+        color: var(--blue);
+        background: var(--blue-soft);
+        font-size: 0.78rem;
+        font-weight: 750;
+      }
+
+      .accounts {
+        min-height: 180px;
+      }
+
+      .account {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .account:last-child {
+        border-bottom: 0;
+      }
+
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        color: var(--blue);
+        background: var(--blue-soft);
+        font-size: 1rem;
+        font-weight: 800;
+      }
+
+      .account-name {
+        margin: 0 0 4px;
+        font-size: 0.94rem;
+        font-weight: 750;
+      }
+
+      .account-email {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.84rem;
+        overflow-wrap: anywhere;
+      }
+
+      .remove {
+        padding: 8px 11px;
+        border: 1px solid #efcbc7;
+        border-radius: 9px;
+        color: var(--red);
+        background: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .remove:hover {
+        background: var(--red-soft);
+      }
+
+      .remove:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+
+      .empty,
+      .loading {
+        display: grid;
+        place-items: center;
+        min-height: 180px;
+        padding: 30px;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.55;
+      }
+
+      code {
+        padding: 2px 6px;
+        border-radius: 5px;
+        color: var(--blue-dark);
+        background: var(--blue-soft);
+        font-family: "Cascadia Code", Consolas, monospace;
+        font-size: 0.86em;
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(100% - 22px, 620px);
+          padding-top: 22px;
+        }
+
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .form-card {
+          position: static;
+        }
+
+        .account {
+          grid-template-columns: 40px minmax(0, 1fr);
+        }
+
+        .remove {
+          grid-column: 1 / -1;
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="topbar">
+        <a class="back" href="/">← Volver al servicio</a>
+        <span id="service-status" class="status-pill">Consultando configuración</span>
+      </div>
+
+      <section class="hero">
+        <p class="eyebrow">Gmail OAuth</p>
+        <h1>Administrador de cuentas</h1>
+        <p>
+          Vinculá cada casilla con una identificación interna. Las aplicaciones
+          usan esa identificación —por ejemplo <code>VENTAS</code>— para elegir
+          desde qué cuenta enviar.
+        </p>
+      </section>
+
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+
+      <div class="layout">
+        <section class="card form-card" aria-labelledby="add-heading">
+          <h2 id="add-heading" class="card-heading">Agregar cuenta</h2>
+          <p class="card-copy">
+            Al continuar se abrirá Google para autorizar únicamente el envío de
+            correos.
+          </p>
+
+          <form id="account-form">
+            <label for="identification">Identificación interna</label>
+            <input
+              id="identification"
+              name="identificacion"
+              placeholder="Ej.: VENTAS"
+              maxlength="50"
+              autocomplete="off"
+              required
+            />
+            <p class="hint">
+              Se guardará en mayúsculas. Puede contener letras, números, espacios,
+              guiones y guiones bajos.
+            </p>
+
+            <label for="email">Cuenta sugerida <span aria-hidden="true">(opcional)</span></label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="ventas@gmail.com"
+              autocomplete="email"
+            />
+
+            <button id="connect-button" class="primary" type="submit">
+              Vincular con Google
+            </button>
+          </form>
+        </section>
+
+        <section class="card accounts-card" aria-labelledby="accounts-heading">
+          <div class="accounts-header">
+            <div>
+              <h2 id="accounts-heading" class="card-heading">Cuentas vinculadas</h2>
+              <p class="card-copy" style="margin-bottom: 0">
+                La identificación es la que debe enviar la aplicación consumidora.
+              </p>
+            </div>
+            <span id="account-count" class="count">0</span>
+          </div>
+          <div id="accounts" class="accounts">
+            <div class="loading">Cargando cuentas…</div>
+          </div>
+        </section>
+      </div>
+
+      <section class="api-card" aria-labelledby="gmail-api-heading">
+        <h2 id="gmail-api-heading" class="api-card-heading">
+          Endpoints de Gmail
+        </h2>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/gmail/estado" target="_blank">/gmail/estado</a>
+          <span class="api-description">Estado de la configuración</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/gmail/cuentas" target="_blank">/gmail/cuentas</a>
+          <span class="api-description">Listar cuentas vinculadas</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method post">POST</span>
+          <span class="api-path">/gmail/enviar</span>
+          <span class="api-description">Enviar desde una identificación</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method delete">DEL</span>
+          <span class="api-path">/gmail/cuentas/:identificacion</span>
+          <span class="api-description">Desvincular una cuenta</span>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const notice = document.getElementById("notice");
+      const accountsContainer = document.getElementById("accounts");
+      const accountCount = document.getElementById("account-count");
+      const serviceStatus = document.getElementById("service-status");
+      const connectButton = document.getElementById("connect-button");
+
+      function showNotice(message, type) {
+        notice.textContent = message;
+        notice.className = `notice show ${type}`;
+      }
+
+      function initials(value) {
+        return value
+          .split("_")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join("");
+      }
+
+      function renderAccounts(accounts) {
+        accountCount.textContent = String(accounts.length);
+        accountsContainer.replaceChildren();
+
+        if (accounts.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.innerHTML =
+            "Todavía no hay cuentas vinculadas.<br />Agregá la primera desde el formulario.";
+          accountsContainer.appendChild(empty);
+          return;
+        }
+
+        for (const account of accounts) {
+          const row = document.createElement("article");
+          row.className = "account";
+
+          const avatar = document.createElement("div");
+          avatar.className = "avatar";
+          avatar.textContent = initials(account.identificacion);
+
+          const information = document.createElement("div");
+          const name = document.createElement("p");
+          name.className = "account-name";
+          name.textContent = account.identificacion;
+          const email = document.createElement("p");
+          email.className = "account-email";
+          email.textContent = account.email;
+          information.append(name, email);
+
+          const removeButton = document.createElement("button");
+          removeButton.className = "remove";
+          removeButton.type = "button";
+          removeButton.textContent = "Desvincular";
+          removeButton.setAttribute(
+            "aria-label",
+            `Desvincular ${account.identificacion}, ${account.email}`
+          );
+          removeButton.addEventListener("click", () =>
+            removeAccount(account, removeButton)
+          );
+
+          row.append(avatar, information, removeButton);
+          accountsContainer.appendChild(row);
+        }
+      }
+
+      async function loadStatus() {
+        const response = await fetch("/gmail/estado");
+        const status = await response.json();
+
+        if (status.configurado) {
+          serviceStatus.textContent = "OAuth configurado";
+          serviceStatus.classList.add("ready");
+          connectButton.disabled = false;
+          return;
+        }
+
+        serviceStatus.textContent = "Falta configuración OAuth";
+        connectButton.disabled = true;
+        showNotice(
+          "Antes de vincular cuentas, completá las variables GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI y las dos claves GMAIL en el archivo .env.",
+          "warning"
+        );
+      }
+
+      async function loadAccounts() {
+        try {
+          const response = await fetch("/gmail/cuentas");
+          const body = await response.json();
+
+          if (!response.ok) {
+            throw new Error(body.error || "No se pudieron consultar las cuentas");
+          }
+
+          renderAccounts(body.cuentas);
+        } catch (error) {
+          accountsContainer.innerHTML = "";
+          const message = document.createElement("div");
+          message.className = "empty";
+          message.textContent = error.message;
+          accountsContainer.appendChild(message);
+        }
+      }
+
+      async function removeAccount(account, button) {
+        const confirmed = window.confirm(
+          `¿Desvincular ${account.identificacion} (${account.email})?\n\nLa aplicación dejará de poder enviar desde esta cuenta.`
+        );
+
+        if (!confirmed) return;
+
+        button.disabled = true;
+        button.textContent = "Desvinculando…";
+
+        try {
+          const response = await fetch(
+            `/gmail/cuentas/${encodeURIComponent(account.identificacion)}`,
+            { method: "DELETE" }
+          );
+          const body = await response.json();
+
+          if (!response.ok) {
+            throw new Error(body.error || "No se pudo desvincular la cuenta");
+          }
+
+          showNotice(
+            body.advertencia ||
+              `${account.identificacion} fue desvinculada correctamente.`,
+            body.advertencia ? "warning" : "success"
+          );
+          await loadAccounts();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "Desvincular";
+          showNotice(error.message, "error");
+        }
+      }
+
+      document
+        .getElementById("account-form")
+        .addEventListener("submit", (event) => {
+          event.preventDefault();
+          const identification = document
+            .getElementById("identification")
+            .value.trim();
+          const email = document.getElementById("email").value.trim();
+
+          if (!identification) {
+            showNotice("Ingresá una identificación interna.", "error");
+            return;
+          }
+
+          const query = new URLSearchParams({ identificacion: identification });
+          if (email) query.set("email", email);
+          window.location.assign(`/gmail/oauth/iniciar?${query}`);
+        });
+
+      const query = new URLSearchParams(window.location.search);
+      if (query.has("alta")) {
+        showNotice(
+          `${query.get("alta")} quedó vinculada a ${query.get("email")}.`,
+          "success"
+        );
+        window.history.replaceState({}, "", "/gmail/panel");
+      }
+
+      Promise.all([loadStatus(), loadAccounts()]).catch((error) => {
+        showNotice(error.message, "error");
+      });
+    </script>
+  </body>
+</html>

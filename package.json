@@ -5,11 +5,13 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node ./node_modules/nodemon/bin/nodemon.js --config nodemon.json index.js"
+    "dev": "node ./node_modules/nodemon/bin/nodemon.js --config nodemon.json index.js",
+    "test": "node --test"
   },
   "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "6.7.20",
+    "better-sqlite3": "^13.0.2",
     "curve25519-js": "0.0.4",
     "dotenv": "16.4.5",
     "express": "5.1.0",

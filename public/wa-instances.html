@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instancias de WhatsApp</title>
+    <link rel="stylesheet" href="/endpoints.css" />
+    <style>
+      :root {
+        --bg: #eef5ef;
+        --card: #ffffff;
+        --text: #17311d;
+        --muted: #5d7264;
+        --line: #d6e4d8;
+        --green: #1e8a38;
+        --green-light: #e6f4ea;
+        --amber: #b45309;
+        --amber-light: #fef3c7;
+        --red: #b91c1c;
+        --red-light: #fee2e2;
+        --blue: #1d4ed8;
+        --blue-light: #dbeafe;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 28px 16px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top, #dff3e4 0%, var(--bg) 52%);
+      }
+
+      .container {
+        width: 100%;
+        max-width: 880px;
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      h1, h2, p { margin-top: 0; }
+      h1 { margin-bottom: 4px; font-size: 1.55rem; }
+      h2 { font-size: 1rem; }
+
+      .muted { color: var(--muted); }
+
+      .back {
+        color: var(--green);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 5px 18px rgba(21, 43, 27, 0.06);
+      }
+
+      .banner {
+        display: none;
+        padding: 14px 16px;
+        border-radius: 12px;
+        color: var(--amber);
+        background: var(--amber-light);
+        font-weight: 600;
+      }
+
+      .instance-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .instance {
+        display: grid;
+        grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) auto;
+        align-items: center;
+        gap: 16px;
+        padding: 15px 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        color: inherit;
+        text-decoration: none;
+        transition: transform 0.15s, border-color 0.15s;
+      }
+
+      .instance:hover {
+        transform: translateY(-1px);
+        border-color: #a9c9b0;
+      }
+
+      .instance strong { display: block; margin-bottom: 3px; }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .green { color: var(--green); background: var(--green-light); }
+      .amber { color: var(--amber); background: var(--amber-light); }
+      .red { color: var(--red); background: var(--red-light); }
+      .blue { color: var(--blue); background: var(--blue-light); }
+      .gray { color: var(--muted); background: var(--bg); }
+
+      form {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      input,
+      select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 10px 12px;
+        color: var(--text);
+        background: #fff;
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 16px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        color: #fff;
+        background: var(--green);
+      }
+
+      button.secondary {
+        color: var(--text);
+        background: var(--line);
+      }
+
+      button.danger {
+        background: var(--red);
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.55;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .details {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .field {
+        padding: 13px 14px;
+        border-radius: 10px;
+        background: var(--bg);
+      }
+
+      .field span {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .pairing {
+        display: none;
+        text-align: center;
+      }
+
+      .code {
+        margin: 18px auto;
+        padding: 16px;
+        max-width: 380px;
+        border: 2px dashed #9abd9f;
+        border-radius: 14px;
+        font-family: "Cascadia Code", Consolas, monospace;
+        font-size: clamp(1.7rem, 7vw, 2.6rem);
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        color: var(--green);
+        background: #f8fbf8;
+      }
+
+      .message {
+        min-height: 20px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .message.error { color: var(--red); }
+
+      .groups-panel {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .section-heading h3 {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .groups-layout {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.4fr);
+        gap: 14px;
+        align-items: start;
+      }
+
+      .group-list {
+        display: grid;
+        gap: 8px;
+        max-height: 560px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+
+      button.group-option {
+        display: grid;
+        gap: 4px;
+        width: 100%;
+        padding: 12px 13px;
+        border: 1px solid var(--line);
+        color: var(--text);
+        background: #fff;
+        text-align: left;
+      }
+
+      button.group-option:hover,
+      button.group-option.selected {
+        border-color: #93bd9d;
+        background: var(--green-light);
+      }
+
+      .group-option small {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .group-detail {
+        min-height: 180px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fbfdfb;
+        overflow: hidden;
+      }
+
+      .group-detail.empty {
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .group-detail h3 {
+        margin: 0 0 12px;
+      }
+
+      .group-id-box {
+        margin-bottom: 14px;
+        padding: 12px;
+        border: 1px solid #b8d8bf;
+        border-radius: 10px;
+        background: var(--green-light);
+      }
+
+      .group-id-box span {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .group-id-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .group-id-row code {
+        overflow-wrap: anywhere;
+        color: var(--green);
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+
+      button.copy-button {
+        flex: 0 0 auto;
+        padding: 7px 10px;
+        color: var(--green);
+        background: #fff;
+        border: 1px solid #a9cdb2;
+        font-size: 0.76rem;
+      }
+
+      .group-summary {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      .group-summary .field {
+        padding: 10px;
+      }
+
+      .participant-table {
+        width: 100%;
+        margin-top: 10px;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+      }
+
+      .participant-table th,
+      .participant-table td {
+        padding: 8px 6px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        overflow-wrap: anywhere;
+      }
+
+      .participant-table th {
+        color: var(--muted);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+      }
+
+      details.raw-metadata {
+        margin-top: 16px;
+      }
+
+      details.raw-metadata summary {
+        cursor: pointer;
+        color: var(--green);
+        font-weight: 700;
+      }
+
+      details.raw-metadata pre {
+        max-height: 420px;
+        overflow: auto;
+        padding: 12px;
+        border-radius: 9px;
+        color: #dcebdd;
+        background: #17311d;
+        font: 0.74rem/1.45 "Cascadia Code", Consolas, monospace;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      body.modal-open {
+        overflow: hidden;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+      }
+
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(14, 31, 19, 0.58);
+        backdrop-filter: blur(3px);
+      }
+
+      .modal-dialog {
+        position: relative;
+        width: min(100%, 440px);
+        padding: 26px;
+        border: 1px solid #efb8b8;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 24px 70px rgba(34, 14, 14, 0.28);
+      }
+
+      .messages-modal {
+        padding: 14px;
+      }
+
+      .messages-dialog {
+        width: min(100%, 1180px);
+        height: min(92vh, 860px);
+        padding: 0;
+        border-color: var(--line);
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+      }
+
+      .messages-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 22px 14px;
+      }
+
+      .messages-header h2 {
+        margin: 0 0 3px;
+        font-size: 1.25rem;
+      }
+
+      button.icon-button {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        border: 1px solid var(--line);
+        color: var(--text);
+        background: #fff;
+        font-size: 1.35rem;
+        line-height: 1;
+      }
+
+      .messages-filters {
+        display: grid;
+        grid-template-columns:
+          minmax(145px, 190px)
+          minmax(145px, 190px)
+          minmax(210px, 290px)
+          auto;
+        justify-content: start;
+        align-items: end;
+        gap: 12px;
+        padding: 0 22px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .messages-filter-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      button.analysis-button {
+        background: var(--blue);
+      }
+
+      .message-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px 22px;
+        background: #f8fbf8;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .stat-card {
+        min-width: 0;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+      }
+
+      .stat-card span {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 0.71rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .stat-card strong {
+        font-size: 1.15rem;
+      }
+
+      .messages-layout {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+      }
+
+      .inbox-analysis-summary {
+        padding: 13px 22px;
+        border-bottom: 1px solid #b8ccef;
+        background: #f3f7ff;
+        max-height: min(46vh, 430px);
+        overflow-y: auto;
+      }
+
+      .analysis-summary-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 7px;
+      }
+
+      .analysis-summary-heading strong {
+        color: #173f92;
+      }
+
+      .analysis-summary-heading small {
+        color: var(--muted);
+      }
+
+      .inbox-analysis-summary p {
+        margin: 0;
+        color: #29415f;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .analysis-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 9px;
+      }
+
+      .analysis-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 999px;
+        color: #29415f;
+        background: #fff;
+        border: 1px solid #c7d7f2;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+
+      .analysis-warning {
+        margin-top: 8px;
+        color: var(--amber);
+        font-size: 0.74rem;
+        font-weight: 600;
+      }
+
+      .analysis-section {
+        margin-top: 14px;
+      }
+
+      .analysis-section h3 {
+        margin: 0 0 7px;
+        color: #173f92;
+        font-size: 0.83rem;
+      }
+
+      .analysis-section ul,
+      .analysis-section ol {
+        margin: 0;
+        padding-left: 20px;
+        color: #29415f;
+        font-size: 0.78rem;
+        line-height: 1.5;
+      }
+
+      .analysis-table-wrap {
+        overflow-x: auto;
+      }
+
+      .analysis-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        font-size: 0.73rem;
+      }
+
+      .analysis-table th,
+      .analysis-table td {
+        padding: 7px 8px;
+        border: 1px solid #c7d7f2;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .analysis-table tr.requires-action td {
+        background: #fff3df;
+      }
+
+      .action-badge {
+        color: #8a4c00;
+        font-weight: 800;
+      }
+
+      .prompt-dialog {
+        width: min(100%, 820px);
+        border-color: var(--line);
+      }
+
+      .prompt-dialog textarea {
+        width: 100%;
+        min-height: min(58vh, 520px);
+        resize: vertical;
+        font: 0.82rem/1.45 "Cascadia Code", Consolas, monospace;
+      }
+
+      .conversations-panel {
+        min-height: 0;
+        overflow-y: auto;
+        border-right: 1px solid var(--line);
+        background: #fbfdfb;
+      }
+
+      .messages-empty {
+        display: grid;
+        place-items: center;
+        min-height: 160px;
+        padding: 28px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      button.conversation-option {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--text);
+        background: transparent;
+        text-align: left;
+      }
+
+      button.conversation-option:hover,
+      button.conversation-option.selected {
+        background: var(--green-light);
+      }
+
+      .conversation-top,
+      .conversation-bottom {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .conversation-top strong,
+      .conversation-bottom span:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .conversation-top time,
+      .conversation-bottom small {
+        flex: 0 0 auto;
+        color: var(--muted);
+        font-size: 0.7rem;
+      }
+
+      .conversation-bottom {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 500;
+      }
+
+      .conversation-insight {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 7px;
+      }
+
+      .conversation-insight span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--blue);
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .conversation-insight small {
+        flex: 0 0 auto;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: var(--blue-light);
+        color: var(--blue);
+        font-size: 0.65rem;
+      }
+
+      .thread-panel {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        background:
+          linear-gradient(rgba(238, 245, 239, 0.9), rgba(238, 245, 239, 0.9)),
+          radial-gradient(circle at 20% 10%, #cfe6d5, transparent 35%);
+      }
+
+      .thread-header {
+        min-height: 58px;
+        padding: 13px 18px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.94);
+      }
+
+      .thread-header strong,
+      .thread-header small {
+        display: block;
+      }
+
+      .conversation-analysis {
+        max-height: 210px;
+        overflow-y: auto;
+        padding: 12px 18px;
+        border-bottom: 1px solid #c7d7f2;
+        background: rgba(243, 247, 255, 0.96);
+        font-size: 0.78rem;
+      }
+
+      .conversation-analysis-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 7px;
+      }
+
+      .conversation-analysis-header strong {
+        color: #173f92;
+      }
+
+      .attention-pill {
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #c7d7f2;
+        color: var(--blue);
+        font-size: 0.67rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .conversation-analysis p {
+        margin: 0 0 7px;
+        line-height: 1.4;
+      }
+
+      .conversation-analysis dl {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        margin: 0 0 8px;
+      }
+
+      .conversation-analysis dl div {
+        padding: 6px 7px;
+        border-radius: 7px;
+        background: #fff;
+      }
+
+      .conversation-analysis dt {
+        color: var(--muted);
+        font-size: 0.62rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .conversation-analysis dd {
+        margin: 2px 0 0;
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .analysis-recommendation {
+        color: #173f92;
+        font-weight: 700;
+      }
+
+      .thread-header small {
+        margin-top: 3px;
+        color: var(--muted);
+      }
+
+      .thread-messages {
+        min-height: 0;
+        overflow-y: auto;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .message-bubble {
+        width: fit-content;
+        max-width: min(76%, 620px);
+        padding: 9px 11px 6px;
+        border: 1px solid rgba(23, 49, 29, 0.08);
+        border-radius: 12px 12px 12px 3px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(21, 43, 27, 0.08);
+      }
+
+      .message-bubble.sent {
+        align-self: flex-end;
+        border-radius: 12px 12px 3px 12px;
+        background: #d9fdd3;
+      }
+
+      .message-bubble p {
+        margin: 0;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .message-bubble footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 7px;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.68rem;
+      }
+
+      .messages-status {
+        min-height: 20px;
+        padding: 0 22px 8px;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .messages-status.error {
+        color: var(--red);
+      }
+
+      .modal-icon {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        margin-bottom: 16px;
+        border-radius: 50%;
+        color: var(--red);
+        background: var(--red-light);
+        font-size: 1.35rem;
+        font-weight: 900;
+      }
+
+      .modal-dialog h2 {
+        margin-bottom: 8px;
+        font-size: 1.18rem;
+      }
+
+      .modal-instance {
+        display: inline-block;
+        margin: 3px 0;
+        color: var(--red);
+        font-family: "Cascadia Code", Consolas, monospace;
+        font-weight: 800;
+      }
+
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .hidden { display: none !important; }
+
+      @media (max-width: 680px) {
+        form, .details, .groups-layout, .group-summary {
+          grid-template-columns: 1fr;
+        }
+        .instance { grid-template-columns: 1fr auto; }
+        .instance .phone { grid-column: 1; }
+        header { align-items: flex-start; }
+        .group-list { max-height: 300px; }
+        .modal-actions { flex-direction: column-reverse; }
+        .modal-actions button { width: 100%; }
+        .messages-dialog {
+          height: calc(100vh - 16px);
+          grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+        }
+        .messages-filters,
+        .message-stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .messages-filter-actions {
+          grid-column: 1 / -1;
+        }
+        .messages-model-field {
+          grid-column: 1 / -1;
+        }
+        .messages-layout {
+          grid-template-columns: minmax(145px, 42%) minmax(0, 1fr);
+        }
+        .message-bubble {
+          max-width: 92%;
+        }
+        .messages-header,
+        .messages-filters,
+        .message-stats,
+        .inbox-analysis-summary {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+        .conversation-analysis dl {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div>
+          <h1>WhatsApp</h1>
+          <div class="muted">Administración de instancias</div>
+        </div>
+        <a class="back" href="/">Volver al estado general</a>
+      </header>
+
+      <div id="disabled-banner" class="banner">
+        La multi-instancia está instalada pero todavía no fue habilitada.
+      </div>
+
+      <section id="list-view">
+        <div class="card">
+          <h2>Nueva instancia</h2>
+          <form id="create-form">
+            <label>
+              Nombre de referencia
+              <input
+                id="name"
+                name="nombre"
+                placeholder="LOGISTICA"
+                maxlength="40"
+                required
+              />
+            </label>
+            <label>
+              Número de WhatsApp
+              <input
+                id="phone"
+                name="numero"
+                placeholder="+5492245558702"
+                inputmode="tel"
+                required
+              />
+            </label>
+            <button id="create-button" type="submit">Crear y vincular</button>
+          </form>
+          <div id="create-message" class="message"></div>
+        </div>
+
+        <div class="card">
+          <h2>Instancias</h2>
+          <div id="instance-list" class="instance-list">
+            <div class="muted">Cargando...</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="detail-view" class="hidden">
+        <div class="card">
+          <h2 id="detail-title">Instancia</h2>
+          <div class="details">
+            <div class="field">
+              <span>Número configurado</span>
+              <strong id="detail-phone">-</strong>
+            </div>
+            <div class="field">
+              <span>Número conectado</span>
+              <strong id="detail-connected-phone">-</strong>
+            </div>
+            <div class="field">
+              <span>Estado</span>
+              <strong id="detail-status">-</strong>
+            </div>
+            <div class="field">
+              <span>Último cambio</span>
+              <strong id="detail-updated">-</strong>
+            </div>
+          </div>
+          <div id="detail-error" class="message error"></div>
+          <div class="actions">
+            <button id="pair-button" type="button">Generar código</button>
+            <button id="groups-button" type="button" class="secondary">
+              Consultar grupos
+            </button>
+            <button id="messages-button" type="button" class="secondary">
+              MENSAJES
+            </button>
+            <button id="delete-button" type="button" class="danger">
+              Eliminar instancia
+            </button>
+          </div>
+          <section id="groups-panel" class="groups-panel hidden">
+            <div class="section-heading">
+              <h3>Grupos disponibles</h3>
+              <span id="groups-count" class="muted"></span>
+            </div>
+            <div class="groups-layout">
+              <div id="groups" class="group-list"></div>
+              <div id="group-detail" class="group-detail empty">
+                Seleccioná un grupo para consultar el Group ID, participantes y
+                todos los metadatos disponibles.
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="pairing-card" class="card pairing">
+        <h2>Código de vinculación</h2>
+        <p>
+          En el teléfono configurado abrí WhatsApp, entrá a
+          <strong>Dispositivos vinculados</strong> y elegí vincular con número
+          de teléfono.
+        </p>
+        <div id="pairing-code" class="code">--------</div>
+        <p class="muted">
+          El sistema no habilitará la instancia hasta verificar que el número
+          conectado coincide con el configurado.
+        </p>
+      </section>
+
+      <section class="api-card" aria-labelledby="whatsapp-api-heading">
+        <h2 id="whatsapp-api-heading" class="api-card-heading">
+          Endpoints de WhatsApp
+        </h2>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/whatsapp/estado" target="_blank">/whatsapp/estado</a>
+          <span class="api-description">Estado de las instancias</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/whatsapp/qr" target="_blank">/whatsapp/qr</a>
+          <span class="api-description">QR del modo clásico</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/whatsapp/login">/whatsapp/login</a>
+          <span class="api-description">Vinculación del modo clásico</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/whatsapp/grupos" target="_blank">/whatsapp/grupos</a>
+          <span class="api-description">Listar grupos</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/whatsapp/reconectar">/whatsapp/reconectar</a>
+          <span class="api-description">Reconectar el modo clásico</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <span class="api-path">/whatsapp/instancias/:id/mensajes</span>
+          <span class="api-description">Mensajes y estadísticas por fechas</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <span class="api-path">/whatsapp/modelos-ia</span>
+          <span class="api-description">Modelos compatibles disponibles</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method post">POST</span>
+          <span class="api-path">/whatsapp/instancias/:id/analizar-bandeja</span>
+          <span class="api-description">Analizar conversaciones del período</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <span class="api-path">/whatsapp/instancias/:id/grupos</span>
+          <span class="api-description">Grupos de una instancia</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <span class="api-path">/whatsapp/instancias/:id/grupos/:groupId</span>
+          <span class="api-description">Información completa del grupo</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method post">POST</span>
+          <span class="api-path">/whatsapp/enviar-sync</span>
+          <span class="api-description">Enviar y esperar el resultado</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method post">POST</span>
+          <span class="api-path">/whatsapp/enviar</span>
+          <span class="api-description">Enviar de forma asíncrona</span>
+        </div>
+      </section>
+    </div>
+
+    <div
+      id="delete-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-modal-title"
+    >
+      <div id="delete-backdrop" class="modal-backdrop"></div>
+      <div class="modal-dialog">
+        <div class="modal-icon">!</div>
+        <h2 id="delete-modal-title">Eliminar instancia</h2>
+        <p>
+          Vas a eliminar
+          <span id="delete-instance-name" class="modal-instance"></span>
+          y desvincular su sesión local.
+        </p>
+        <p class="muted">
+          Esta acción no borra tu cuenta de WhatsApp, pero después tendrás que
+          crear y vincular nuevamente la instancia para usarla.
+        </p>
+        <div id="delete-modal-error" class="message error"></div>
+        <div class="modal-actions">
+          <button id="delete-cancel" type="button" class="secondary">
+            Cancelar
+          </button>
+          <button id="delete-confirm" type="button" class="danger">
+            Sí, eliminar instancia
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="messages-modal"
+      class="modal messages-modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="messages-modal-title"
+    >
+      <div id="messages-backdrop" class="modal-backdrop"></div>
+      <div class="modal-dialog messages-dialog">
+        <div class="messages-header">
+          <div>
+            <h2 id="messages-modal-title">Mensajes</h2>
+            <div id="messages-instance-name" class="muted"></div>
+          </div>
+          <button
+            id="messages-close"
+            type="button"
+            class="icon-button"
+            aria-label="Cerrar mensajes"
+          >
+            ×
+          </button>
+        </div>
+
+        <form id="messages-filters" class="messages-filters">
+          <label>
+            Desde
+            <input id="messages-from" type="date" required />
+          </label>
+          <label>
+            Hasta
+            <input id="messages-to" type="date" required />
+          </label>
+          <label class="messages-model-field">
+            Modelo de IA
+            <select id="messages-ai-model" aria-label="Modelo de IA">
+              <option value="">Consultando modelos...</option>
+            </select>
+          </label>
+          <div class="messages-filter-actions">
+            <button id="messages-load" type="submit">Consultar</button>
+            <button
+              id="messages-analyze"
+              type="button"
+              class="analysis-button"
+            >
+              Analizar bandeja
+            </button>
+            <button id="messages-prompt" type="button" class="secondary">
+              Ver prompt
+            </button>
+          </div>
+        </form>
+
+        <div id="messages-status" class="messages-status"></div>
+
+        <div class="message-stats">
+          <div class="stat-card">
+            <span>Recibidos</span>
+            <strong id="stat-received">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Enviados</span>
+            <strong id="stat-sent">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Promedio de respuesta</span>
+            <strong id="stat-response">Sin datos</strong>
+          </div>
+          <div class="stat-card">
+            <span>Conversaciones</span>
+            <strong id="stat-conversations">0</strong>
+          </div>
+        </div>
+
+        <section id="inbox-analysis-summary" class="inbox-analysis-summary hidden">
+          <div class="analysis-summary-heading">
+            <strong>Resumen del análisis</strong>
+            <small id="analysis-model"></small>
+          </div>
+          <p id="analysis-general-summary"></p>
+          <div id="analysis-report-content"></div>
+        </section>
+
+        <div class="messages-layout">
+          <aside
+            id="conversation-list"
+            class="conversations-panel"
+            aria-label="Conversaciones"
+          >
+            <div class="messages-empty">Seleccioná un rango de fechas.</div>
+          </aside>
+          <section class="thread-panel" aria-label="Secuencia de mensajes">
+            <div id="thread-header" class="thread-header hidden"></div>
+            <div
+              id="conversation-analysis"
+              class="conversation-analysis hidden"
+            ></div>
+            <div id="thread-messages" class="thread-messages">
+              <div class="messages-empty">
+                Elegí una conversación para ver los mensajes enviados y
+                recibidos.
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="prompt-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="prompt-modal-title"
+    >
+      <div id="prompt-backdrop" class="modal-backdrop"></div>
+      <div class="modal-dialog prompt-dialog">
+        <h2 id="prompt-modal-title">Prompt del analista</h2>
+        <p class="muted">Este texto se guarda para esta instancia de WhatsApp.</p>
+        <textarea id="analyst-prompt" aria-label="Prompt del analista"></textarea>
+        <div id="prompt-error" class="message error"></div>
+        <div class="modal-actions">
+          <button id="prompt-cancel" type="button" class="secondary">Cancelar</button>
+          <button id="prompt-save" type="button">Guardar prompt</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const selectedInstance = params.get("instancia");
+      const disabledBanner = document.getElementById("disabled-banner");
+      const listView = document.getElementById("list-view");
+      const detailView = document.getElementById("detail-view");
+      const pairingCard = document.getElementById("pairing-card");
+      const pairingCode = document.getElementById("pairing-code");
+      const groupsPanel = document.getElementById("groups-panel");
+      const groupsContainer = document.getElementById("groups");
+      const groupsCount = document.getElementById("groups-count");
+      const groupDetail = document.getElementById("group-detail");
+      const deleteModal = document.getElementById("delete-modal");
+      const deleteInstanceName = document.getElementById("delete-instance-name");
+      const deleteModalError = document.getElementById("delete-modal-error");
+      const deleteConfirm = document.getElementById("delete-confirm");
+      const messagesModal = document.getElementById("messages-modal");
+      const messagesFrom = document.getElementById("messages-from");
+      const messagesTo = document.getElementById("messages-to");
+      const messagesStatus = document.getElementById("messages-status");
+      const messagesLoad = document.getElementById("messages-load");
+      const messagesAnalyze = document.getElementById("messages-analyze");
+      const messagesPrompt = document.getElementById("messages-prompt");
+      const messagesAiModel = document.getElementById("messages-ai-model");
+      const inboxAnalysisSummary = document.getElementById(
+        "inbox-analysis-summary"
+      );
+      const conversationAnalysis = document.getElementById(
+        "conversation-analysis"
+      );
+      const conversationList = document.getElementById("conversation-list");
+      const threadHeader = document.getElementById("thread-header");
+      const threadMessages = document.getElementById("thread-messages");
+      const promptModal = document.getElementById("prompt-modal");
+      const analystPrompt = document.getElementById("analyst-prompt");
+      const promptError = document.getElementById("prompt-error");
+      const promptSave = document.getElementById("prompt-save");
+      let currentMessageReport = null;
+      let messageConversations = [];
+      let inboxAnalysisByChat = new Map();
+      let multiEnabled = false;
+      const aiModelStorageKey = "whatsapp-inbox-analysis-model";
+
+      function statusClass(status) {
+        if (status === "conectado") return "green";
+        if (["conectando", "inicializando", "generando_codigo"].includes(status)) {
+          return "blue";
+        }
+        if (["esperando_vinculacion", "pendiente_vinculacion"].includes(status)) {
+          return "amber";
+        }
+        if (["error", "numero_incorrecto", "desconectado"].includes(status)) {
+          return "red";
+        }
+        return "gray";
+      }
+
+      function statusLabel(status) {
+        const labels = {
+          creada: "creada",
+          inicializando: "inicializando...",
+          generando_codigo: "generando código...",
+          esperando_vinculacion: "esperando vinculación",
+          pendiente_vinculacion: "sin vincular",
+          conectando: "conectando...",
+          conectado: "conectado",
+          desconectado: "desconectado",
+          numero_incorrecto: "número incorrecto",
+          error: "error"
+        };
+        return labels[status] || status;
+      }
+
+      function formatDate(value) {
+        if (!value) return "-";
+        return new Date(value).toLocaleString("es-AR");
+      }
+
+      function argentinaToday() {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Argentina/Buenos_Aires",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        })
+          .formatToParts(new Date())
+          .filter((part) => part.type !== "literal")
+          .reduce((result, part) => {
+            result[part.type] = part.value;
+            return result;
+          }, {});
+
+        return `${parts.year}-${parts.month}-${parts.day}`;
+      }
+
+      function formatMessageTime(value) {
+        if (!value) return "";
+        return new Date(value).toLocaleString("es-AR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      }
+
+      function formatRangeDate(value) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+        return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+      }
+
+      function formatDuration(seconds) {
+        if (seconds === null || seconds === undefined) return "Sin datos";
+        if (seconds < 60) return `${seconds} s`;
+
+        const minutes = Math.round(seconds / 60);
+        if (minutes < 60) return `${minutes} min`;
+
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return remainingMinutes ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+      }
+
+      function messageText(message) {
+        if (message.texto) return message.texto;
+
+        const labels = {
+          imageMessage: "Imagen",
+          videoMessage: "Video",
+          audioMessage: "Audio",
+          documentMessage: "Documento",
+          stickerMessage: "Sticker",
+          contactMessage: "Contacto",
+          locationMessage: "Ubicación",
+          reactionMessage: "Reacción"
+        };
+        return `[${labels[message.tipo] || "Mensaje sin texto"}]`;
+      }
+
+      function getSavedAiModel() {
+        try {
+          return window.localStorage.getItem(aiModelStorageKey);
+        } catch {
+          return null;
+        }
+      }
+
+      function saveAiModel(value) {
+        try {
+          window.localStorage.setItem(aiModelStorageKey, value);
+        } catch {
+          // El selector funciona igualmente si el navegador bloquea localStorage.
+        }
+      }
+
+      async function loadAiModels() {
+        let loaded = false;
+        messagesAiModel.disabled = true;
+        messagesAiModel.replaceChildren();
+        const loading = document.createElement("option");
+        loading.value = "";
+        loading.textContent = "Consultando modelos...";
+        messagesAiModel.appendChild(loading);
+
+        try {
+          const data = await request("/whatsapp/modelos-ia");
+          const models = data.modelos || [];
+
+          if (!models.length) {
+            throw new Error("Gemini no devolvió modelos compatibles");
+          }
+
+          messagesAiModel.replaceChildren();
+          for (const model of models) {
+            const option = document.createElement("option");
+            option.value = model.id;
+            option.textContent =
+              model.nombre && model.nombre !== model.id
+                ? `${model.nombre} — ${model.id}`
+                : model.id;
+            option.title = [
+              model.descripcion,
+              model.tokensEntrada
+                ? `${model.tokensEntrada.toLocaleString("es-AR")} tokens de entrada`
+                : "",
+              model.tokensSalida
+                ? `${model.tokensSalida.toLocaleString("es-AR")} tokens de salida`
+                : ""
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            messagesAiModel.appendChild(option);
+          }
+
+          const availableIds = new Set(models.map((model) => model.id));
+          const savedModel = getSavedAiModel();
+          const preferredModel =
+            (availableIds.has(savedModel) && savedModel) ||
+            (availableIds.has(data.modeloPredeterminado) &&
+              data.modeloPredeterminado) ||
+            models[0].id;
+          messagesAiModel.value = preferredModel;
+          saveAiModel(preferredModel);
+          messagesAiModel.title =
+            messagesAiModel.selectedOptions[0]?.title || "";
+          loaded = true;
+        } catch (error) {
+          messagesAiModel.replaceChildren();
+          const fallback = document.createElement("option");
+          fallback.value = "";
+          fallback.textContent = "No se pudieron cargar los modelos habilitados";
+          messagesAiModel.appendChild(fallback);
+          messagesAiModel.title =
+            `No se pudo consultar la lista: ${error.message}`;
+        } finally {
+          messagesAiModel.disabled = !multiEnabled || !loaded;
+        }
+      }
+
+      function setText(id, value) {
+        document.getElementById(id).textContent = value ?? "-";
+      }
+
+      function yesNo(value) {
+        if (value === undefined || value === null) return "-";
+        return value ? "Sí" : "No";
+      }
+
+      function participantRole(participant) {
+        if (participant.admin === "superadmin") return "Creador";
+        if (participant.admin === "admin") return "Administrador";
+        return "Miembro";
+      }
+
+      async function copyText(value) {
+        if (navigator.clipboard?.writeText) {
+          try {
+            await navigator.clipboard.writeText(value);
+            return;
+          } catch {
+            // Algunos navegadores bloquean clipboard fuera de HTTPS.
+          }
+        }
+
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      }
+
+      function appendSummaryField(container, label, value) {
+        const field = document.createElement("div");
+        field.className = "field";
+        const fieldLabel = document.createElement("span");
+        fieldLabel.textContent = label;
+        const fieldValue = document.createElement("strong");
+        fieldValue.textContent = value ?? "-";
+        field.append(fieldLabel, fieldValue);
+        container.appendChild(field);
+      }
+
+      function renderGroupDetails(group) {
+        const metadata = group.metadata || {};
+        const participants = Array.isArray(metadata.participants)
+          ? metadata.participants
+          : [];
+        const groupId = group.groupId || group.id;
+
+        groupDetail.replaceChildren();
+        groupDetail.classList.remove("empty");
+
+        const title = document.createElement("h3");
+        title.textContent = group.nombre || metadata.subject || "Grupo";
+
+        const idBox = document.createElement("div");
+        idBox.className = "group-id-box";
+        const idLabel = document.createElement("span");
+        idLabel.textContent = "Group ID para enviar notificaciones";
+        const idRow = document.createElement("div");
+        idRow.className = "group-id-row";
+        const idCode = document.createElement("code");
+        idCode.textContent = groupId;
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.className = "copy-button";
+        copyButton.textContent = "Copiar ID";
+        copyButton.addEventListener("click", async () => {
+          await copyText(groupId);
+          copyButton.textContent = "Copiado";
+          setTimeout(() => {
+            copyButton.textContent = "Copiar ID";
+          }, 1600);
+        });
+        idRow.append(idCode, copyButton);
+        idBox.append(idLabel, idRow);
+
+        groupDetail.append(title, idBox);
+
+        if (group.descripcion || metadata.desc) {
+          const description = document.createElement("p");
+          description.className = "muted";
+          description.textContent = group.descripcion || metadata.desc;
+          groupDetail.appendChild(description);
+        }
+
+        const summary = document.createElement("div");
+        summary.className = "group-summary";
+        appendSummaryField(
+          summary,
+          "Participantes",
+          String(group.participantes ?? participants.length)
+        );
+        appendSummaryField(
+          summary,
+          "Creado",
+          formatDate(group.creadoEn || metadata.creation)
+        );
+        appendSummaryField(
+          summary,
+          "Solo admins envían",
+          yesNo(metadata.announce)
+        );
+        appendSummaryField(
+          summary,
+          "Solo admins editan",
+          yesNo(metadata.restrict)
+        );
+        appendSummaryField(
+          summary,
+          "Comunidad",
+          yesNo(metadata.isCommunity ?? group.esComunidad)
+        );
+        appendSummaryField(
+          summary,
+          "Aprobación para entrar",
+          yesNo(metadata.joinApprovalMode)
+        );
+        groupDetail.appendChild(summary);
+
+        const participantsTitle = document.createElement("h3");
+        participantsTitle.textContent = `Participantes (${participants.length})`;
+        groupDetail.appendChild(participantsTitle);
+
+        if (participants.length) {
+          const table = document.createElement("table");
+          table.className = "participant-table";
+          const thead = document.createElement("thead");
+          const headerRow = document.createElement("tr");
+          for (const label of ["Nombre", "ID", "Rol"]) {
+            const th = document.createElement("th");
+            th.textContent = label;
+            headerRow.appendChild(th);
+          }
+          thead.appendChild(headerRow);
+
+          const tbody = document.createElement("tbody");
+          for (const participant of participants) {
+            const row = document.createElement("tr");
+            const name = document.createElement("td");
+            name.textContent =
+              participant.notify ||
+              participant.name ||
+              participant.verifiedName ||
+              "-";
+            const id = document.createElement("td");
+            id.textContent = participant.id || participant.jid || participant.lid || "-";
+            const role = document.createElement("td");
+            role.textContent = participantRole(participant);
+            row.append(name, id, role);
+            tbody.appendChild(row);
+          }
+          table.append(thead, tbody);
+          groupDetail.appendChild(table);
+        } else {
+          const empty = document.createElement("p");
+          empty.className = "muted";
+          empty.textContent = "WhatsApp no devolvió participantes para este grupo.";
+          groupDetail.appendChild(empty);
+        }
+
+        const raw = document.createElement("details");
+        raw.className = "raw-metadata";
+        const rawTitle = document.createElement("summary");
+        rawTitle.textContent = "Ver todos los metadatos disponibles";
+        const rawContent = document.createElement("pre");
+        rawContent.textContent = JSON.stringify(metadata, null, 2);
+        raw.append(rawTitle, rawContent);
+        groupDetail.appendChild(raw);
+      }
+
+      function renderGroupList(groups) {
+        groupsContainer.replaceChildren();
+        groupsCount.textContent =
+          `${groups.length} grupo${groups.length === 1 ? "" : "s"}`;
+
+        groupDetail.className = "group-detail empty";
+        groupDetail.textContent = groups.length
+          ? "Seleccioná un grupo para consultar el Group ID, participantes y todos los metadatos disponibles."
+          : "No se encontraron grupos en esta cuenta.";
+
+        for (const group of groups) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "group-option";
+
+          const name = document.createElement("strong");
+          name.textContent = group.nombre || "Grupo sin nombre";
+          const detail = document.createElement("small");
+          detail.textContent =
+            `${group.groupId || group.id} · ${group.participantes ?? 0} participantes`;
+          button.append(name, detail);
+
+          button.addEventListener("click", async () => {
+            groupsContainer
+              .querySelectorAll(".group-option")
+              .forEach((option) => option.classList.remove("selected"));
+            button.classList.add("selected");
+            button.disabled = true;
+            groupDetail.className = "group-detail empty";
+            groupDetail.textContent = "Consultando información del grupo...";
+
+            try {
+              const data = await request(
+                `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}/grupos/${encodeURIComponent(group.groupId || group.id)}`
+              );
+              renderGroupDetails(data.grupo);
+            } catch (error) {
+              groupDetail.className = "group-detail empty";
+              groupDetail.textContent = error.message;
+            } finally {
+              button.disabled = false;
+            }
+          });
+
+          groupsContainer.appendChild(button);
+        }
+      }
+
+      function renderConversationAnalysis(chat) {
+        const analysis = inboxAnalysisByChat.get(chat);
+        conversationAnalysis.replaceChildren();
+
+        if (!analysis) {
+          conversationAnalysis.classList.add("hidden");
+          return;
+        }
+
+        conversationAnalysis.classList.remove("hidden");
+        const header = document.createElement("div");
+        header.className = "conversation-analysis-header";
+        const category = document.createElement("strong");
+        category.textContent = analysis.categoria;
+        const state = document.createElement("span");
+        state.className = "attention-pill";
+        state.textContent = analysis.estado;
+        header.append(category, state);
+
+        const motive = document.createElement("p");
+        motive.textContent = analysis.motivo;
+        if (analysis.requiereAccion) {
+          const action = document.createElement("p");
+          action.className = "analysis-recommendation";
+          action.textContent = "Requiere acción del negocio";
+          conversationAnalysis.append(header, motive, action);
+        } else {
+          conversationAnalysis.append(header, motive);
+        }
+      }
+
+      function renderInboxAnalysis(data) {
+        const chatByNumber = new Map(
+          messageConversations.map((conversation) => [conversation.numero, conversation.chat])
+        );
+        inboxAnalysisByChat = new Map(
+          (data.tipificaciones || [])
+            .filter((analysis) => chatByNumber.has(analysis.numero))
+            .map((analysis) => [chatByNumber.get(analysis.numero), analysis])
+        );
+        inboxAnalysisSummary.classList.remove("hidden");
+        setText("analysis-general-summary", data.resumenEjecutivo);
+        setText("analysis-model", data.modelo ? `Con IA · ${data.modelo}` : "Con IA");
+
+        const content = document.getElementById("analysis-report-content");
+        content.replaceChildren();
+        const addSection = (title) => {
+          const section = document.createElement("section");
+          section.className = "analysis-section";
+          const heading = document.createElement("h3");
+          heading.textContent = title;
+          section.appendChild(heading);
+          content.appendChild(section);
+          return section;
+        };
+
+        const classifications = addSection("Tipificaciones");
+        const tableWrap = document.createElement("div");
+        tableWrap.className = "analysis-table-wrap";
+        const table = document.createElement("table");
+        table.className = "analysis-table";
+        const head = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        ["Número", "Categoría", "Estado", "Acción", "Motivo"].forEach((label) => {
+          const cell = document.createElement("th");
+          cell.textContent = label;
+          headerRow.appendChild(cell);
+        });
+        head.appendChild(headerRow);
+        const body = document.createElement("tbody");
+        (data.tipificaciones || []).forEach((item) => {
+          const row = document.createElement("tr");
+          if (item.requiereAccion) row.className = "requires-action";
+          [
+            item.numero,
+            item.categoria,
+            item.estado,
+            item.requiereAccion ? "Sí" : "No",
+            item.motivo
+          ].forEach((value, index) => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            if (index === 3 && item.requiereAccion) cell.className = "action-badge";
+            row.appendChild(cell);
+          });
+          body.appendChild(row);
+        });
+        table.append(head, body);
+        tableWrap.appendChild(table);
+        classifications.appendChild(tableWrap);
+
+        const opportunities = addSection("Oportunidades perdidas");
+        const opportunityList = document.createElement("ul");
+        (data.oportunidadesPerdidas || []).forEach((item) => {
+          const entry = document.createElement("li");
+          entry.textContent = `${item.numero}: ${item.descripcion}`;
+          opportunityList.appendChild(entry);
+        });
+        if (!opportunityList.children.length) {
+          const entry = document.createElement("li");
+          entry.textContent = "No se detectaron oportunidades perdidas.";
+          opportunityList.appendChild(entry);
+        }
+        opportunities.appendChild(opportunityList);
+
+        const topics = addSection("Temas frecuentes");
+        const topicList = document.createElement("ul");
+        (data.temasFrecuentes || []).forEach((item) => {
+          const entry = document.createElement("li");
+          entry.textContent = `${item.tema}: ${item.menciones} menciones`;
+          topicList.appendChild(entry);
+        });
+        topics.appendChild(topicList);
+
+        const quality = addSection("Calidad de atención");
+        const qualityText = document.createElement("p");
+        qualityText.textContent = data.calidadAtencion;
+        quality.appendChild(qualityText);
+
+        const recommendations = addSection("Recomendaciones priorizadas");
+        const recommendationList = document.createElement("ol");
+        (data.recomendaciones || []).forEach((text) => {
+          const entry = document.createElement("li");
+          entry.textContent = text;
+          recommendationList.appendChild(entry);
+        });
+        recommendations.appendChild(recommendationList);
+
+        if (currentMessageReport) {
+          renderMessageReport(currentMessageReport);
+        }
+      }
+
+      function renderThread(conversation) {
+        threadHeader.replaceChildren();
+        threadHeader.classList.remove("hidden");
+
+        const title = document.createElement("strong");
+        title.textContent = conversation.esGrupo
+          ? `Grupo ${conversation.numero}`
+          : `+${conversation.numero}`;
+        const summary = document.createElement("small");
+        summary.textContent =
+          `${conversation.recibidos} recibidos · ${conversation.enviados} enviados`;
+        threadHeader.append(title, summary);
+        renderConversationAnalysis(conversation.chat);
+
+        threadMessages.replaceChildren();
+        for (const message of conversation.mensajes) {
+          const bubble = document.createElement("article");
+          bubble.className =
+            `message-bubble ${message.direccion === "enviado" ? "sent" : "received"}`;
+
+          const content = document.createElement("p");
+          content.textContent = messageText(message);
+
+          const footer = document.createElement("footer");
+          const direction = document.createElement("span");
+          direction.textContent =
+            message.direccion === "enviado" ? "Enviado" : "Recibido";
+          const time = document.createElement("time");
+          time.dateTime = message.fecha;
+          time.textContent = formatMessageTime(message.fecha);
+          footer.append(direction, time);
+          bubble.append(content, footer);
+          threadMessages.appendChild(bubble);
+        }
+
+        threadMessages.scrollTop = threadMessages.scrollHeight;
+      }
+
+      function selectConversation(index, button) {
+        conversationList
+          .querySelectorAll(".conversation-option")
+          .forEach((option) => option.classList.remove("selected"));
+        button?.classList.add("selected");
+        renderThread(messageConversations[index]);
+      }
+
+      function renderMessageReport(data) {
+        currentMessageReport = data;
+        const stats = data.estadisticas || {};
+        setText("stat-received", stats.mensajesRecibidos ?? 0);
+        setText("stat-sent", stats.mensajesEnviados ?? 0);
+        setText(
+          "stat-response",
+          formatDuration(stats.tiempoPromedioRespuestaSegundos)
+        );
+        setText("stat-conversations", stats.conversaciones ?? 0);
+
+        messageConversations = data.conversaciones || [];
+        messageConversations.forEach((conversation) => {
+          if (!inboxAnalysisByChat.has(conversation.chat) && conversation.etiqueta) {
+            inboxAnalysisByChat.set(conversation.chat, conversation.etiqueta);
+          }
+        });
+        conversationList.replaceChildren();
+        threadHeader.replaceChildren();
+        threadHeader.classList.add("hidden");
+        conversationAnalysis.replaceChildren();
+        conversationAnalysis.classList.add("hidden");
+        threadMessages.replaceChildren();
+
+        if (!messageConversations.length) {
+          const emptyList = document.createElement("div");
+          emptyList.className = "messages-empty";
+          emptyList.textContent = "No hay mensajes guardados en este período.";
+          conversationList.appendChild(emptyList);
+
+          const emptyThread = document.createElement("div");
+          emptyThread.className = "messages-empty";
+          emptyThread.textContent =
+            "Los mensajes se guardan desde que el servicio está ejecutándose.";
+          threadMessages.appendChild(emptyThread);
+          return;
+        }
+
+        messageConversations.forEach((conversation, index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "conversation-option";
+
+          const top = document.createElement("div");
+          top.className = "conversation-top";
+          const number = document.createElement("strong");
+          number.textContent = conversation.esGrupo
+            ? `Grupo ${conversation.numero}`
+            : `+${conversation.numero}`;
+          const time = document.createElement("time");
+          time.dateTime = conversation.ultimoMensajeEn;
+          time.textContent = formatMessageTime(conversation.ultimoMensajeEn);
+          top.append(number, time);
+
+          const bottom = document.createElement("div");
+          bottom.className = "conversation-bottom";
+          const preview = document.createElement("span");
+          preview.textContent = conversation.ultimoMensaje || "Mensaje";
+          const count = document.createElement("small");
+          count.textContent = String(conversation.total);
+          bottom.append(preview, count);
+          button.append(top, bottom);
+
+          const analysis =
+            inboxAnalysisByChat.get(conversation.chat) || conversation.etiqueta;
+          if (analysis) {
+            const insight = document.createElement("div");
+            insight.className = "conversation-insight";
+            const motive = document.createElement("span");
+            motive.textContent = analysis.categoria;
+            const attention = document.createElement("small");
+            attention.textContent = analysis.requiereAccion
+              ? "Requiere acción"
+              : analysis.estado;
+            insight.append(motive, attention);
+            button.appendChild(insight);
+          }
+
+          button.addEventListener("click", () => {
+            selectConversation(index, button);
+          });
+          conversationList.appendChild(button);
+        });
+
+        const firstButton = conversationList.querySelector(
+          ".conversation-option"
+        );
+        selectConversation(0, firstButton);
+      }
+
+      async function loadMessages() {
+        messagesLoad.disabled = true;
+        messagesAnalyze.disabled = true;
+        currentMessageReport = null;
+        inboxAnalysisByChat = new Map();
+        inboxAnalysisSummary.classList.add("hidden");
+        messagesStatus.className = "messages-status";
+        messagesStatus.textContent = "Consultando mensajes...";
+
+        try {
+          const query = new URLSearchParams({
+            desde: messagesFrom.value,
+            hasta: messagesTo.value
+          });
+          const data = await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}/mensajes?${query}`
+          );
+          renderMessageReport(data);
+          messagesStatus.textContent =
+            `${data.cantidad} mensaje${data.cantidad === 1 ? "" : "s"} entre ` +
+            `${formatRangeDate(data.desde)} y ${formatRangeDate(data.hasta)}`;
+          messagesAnalyze.disabled = !multiEnabled || data.cantidad === 0;
+        } catch (error) {
+          messagesStatus.className = "messages-status error";
+          messagesStatus.textContent = error.message;
+          messagesAnalyze.disabled = true;
+        } finally {
+          messagesLoad.disabled = !multiEnabled;
+        }
+      }
+
+      async function analyzeInbox() {
+        if (!currentMessageReport?.cantidad) {
+          messagesStatus.className = "messages-status error";
+          messagesStatus.textContent =
+            "Primero consultá un período que tenga mensajes.";
+          return;
+        }
+
+        messagesAnalyze.disabled = true;
+        messagesLoad.disabled = true;
+        messagesAnalyze.textContent = "Analizando...";
+        messagesStatus.className = "messages-status";
+        messagesStatus.textContent =
+          `Analizando ${currentMessageReport.estadisticas.conversaciones} ` +
+          "conversación(es). Puede demorar unos segundos...";
+
+        try {
+          const data = await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}/analizar-bandeja`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                desde: messagesFrom.value,
+                hasta: messagesTo.value,
+                modelo: messagesAiModel.value
+              })
+            }
+          );
+          renderInboxAnalysis(data);
+          messagesStatus.textContent =
+            `${data.tipificaciones.length} conversación(es) tipificadas ` +
+            `con ${data.modelo || "IA"}.`;
+        } catch (error) {
+          messagesStatus.className = "messages-status error";
+          messagesStatus.textContent = error.message;
+        } finally {
+          messagesAnalyze.disabled = !multiEnabled;
+          messagesLoad.disabled = !multiEnabled;
+          messagesAnalyze.textContent = "Analizar bandeja";
+        }
+      }
+
+      async function openPromptModal() {
+        messagesPrompt.disabled = true;
+        promptError.textContent = "";
+        analystPrompt.value = "Consultando prompt...";
+        promptModal.classList.remove("hidden");
+        document.body.classList.add("modal-open");
+        try {
+          const data = await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}/prompt-analista`
+          );
+          analystPrompt.value = data.prompt;
+          analystPrompt.focus();
+        } catch (error) {
+          promptError.textContent = error.message;
+          analystPrompt.value = "";
+        } finally {
+          messagesPrompt.disabled = false;
+        }
+      }
+
+      function closePromptModal() {
+        promptModal.classList.add("hidden");
+        if (messagesModal.classList.contains("hidden")) {
+          document.body.classList.remove("modal-open");
+        }
+        messagesPrompt.focus();
+      }
+
+      async function saveAnalystPrompt() {
+        promptSave.disabled = true;
+        promptError.textContent = "";
+        try {
+          await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}/prompt-analista`,
+            {
+              method: "PUT",
+              body: JSON.stringify({ prompt: analystPrompt.value })
+            }
+          );
+          closePromptModal();
+          messagesStatus.className = "messages-status";
+          messagesStatus.textContent = "Prompt del analista guardado.";
+        } catch (error) {
+          promptError.textContent = error.message;
+        } finally {
+          promptSave.disabled = false;
+        }
+      }
+
+      function openMessagesModal() {
+        const today = argentinaToday();
+        messagesFrom.value ||= today;
+        messagesTo.value ||= today;
+        document.getElementById("messages-instance-name").textContent =
+          document.getElementById("detail-title").textContent || selectedInstance;
+        messagesModal.classList.remove("hidden");
+        document.body.classList.add("modal-open");
+        loadAiModels();
+        loadMessages();
+      }
+
+      function closeMessagesModal() {
+        messagesModal.classList.add("hidden");
+        if (deleteModal.classList.contains("hidden")) {
+          document.body.classList.remove("modal-open");
+        }
+        document.getElementById("messages-button").focus();
+      }
+
+      function openDeleteModal() {
+        deleteInstanceName.textContent =
+          document.getElementById("detail-title").textContent || selectedInstance;
+        deleteModalError.textContent = "";
+        deleteModal.classList.remove("hidden");
+        document.body.classList.add("modal-open");
+        deleteConfirm.focus();
+      }
+
+      function closeDeleteModal() {
+        if (deleteConfirm.disabled) return;
+        deleteModal.classList.add("hidden");
+        document.body.classList.remove("modal-open");
+        document.getElementById("delete-button").focus();
+      }
+
+      async function request(url, options = {}) {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {})
+          }
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || `Error HTTP ${response.status}`);
+        }
+
+        return data;
+      }
+
+      async function loadMode() {
+        const data = await request("/whatsapp/modo");
+        multiEnabled = data.multiInstanciaHabilitada;
+        disabledBanner.style.display = multiEnabled ? "none" : "block";
+
+        document
+          .querySelectorAll("button, input, select")
+          .forEach((element) => {
+            element.disabled = !multiEnabled;
+          });
+      }
+
+      function renderInstances(instances) {
+        const container = document.getElementById("instance-list");
+        container.replaceChildren();
+
+        if (!instances.length) {
+          const empty = document.createElement("div");
+          empty.className = "muted";
+          empty.textContent = "Todavía no hay instancias cargadas.";
+          container.appendChild(empty);
+          return;
+        }
+
+        for (const instance of instances) {
+          const row = document.createElement("a");
+          row.className = "instance";
+          row.href = `/whatsapp/panel?instancia=${encodeURIComponent(instance.id)}`;
+
+          const identity = document.createElement("div");
+          const name = document.createElement("strong");
+          name.textContent = instance.nombre;
+          const verification = document.createElement("span");
+          verification.className = "muted";
+          verification.textContent = instance.numeroVerificado
+            ? "Número verificado"
+            : "Pendiente de verificación";
+          identity.append(name, verification);
+
+          const phone = document.createElement("div");
+          phone.className = "phone";
+          phone.textContent = `+${instance.numero}`;
+
+          const badge = document.createElement("span");
+          badge.className = `badge ${statusClass(instance.estado)}`;
+          badge.textContent = statusLabel(instance.estado);
+
+          row.append(identity, phone, badge);
+          container.appendChild(row);
+        }
+      }
+
+      async function loadInstances() {
+        const data = await request("/whatsapp/instancias");
+        renderInstances(data.instancias || []);
+      }
+
+      function renderDetail(instance) {
+        setText("detail-title", instance.nombre);
+        setText("detail-phone", `+${instance.numero}`);
+        setText(
+          "detail-connected-phone",
+          instance.numeroConectado ? `+${instance.numeroConectado}` : "-"
+        );
+        setText("detail-status", statusLabel(instance.estado));
+        setText("detail-updated", formatDate(instance.ultimoCambio));
+        setText("detail-error", instance.ultimoError || "");
+
+        document.getElementById("pair-button").textContent =
+          instance.estado === "conectado"
+            ? "Volver a vincular"
+            : "Generar código";
+
+        if (instance.estado === "conectado") {
+          pairingCard.style.display = "none";
+        }
+      }
+
+      async function loadDetail() {
+        const data = await request(
+          `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}`
+        );
+        renderDetail(data.instancia);
+
+        if (data.instancia.codigoVinculacionDisponible) {
+          try {
+            const pairing = await request(
+              `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}/vinculacion`
+            );
+            pairingCode.textContent = pairing.codigo;
+            pairingCard.style.display = "block";
+          } catch {
+            // The code may have been consumed between both status requests.
+          }
+        }
+      }
+
+      async function pairInstance(id) {
+        const data = await request(
+          `/whatsapp/instancias/${encodeURIComponent(id)}/vincular`,
+          { method: "POST", body: "{}" }
+        );
+        pairingCode.textContent = data.codigo;
+        pairingCard.style.display = "block";
+        pairingCard.scrollIntoView({ behavior: "smooth" });
+        return data;
+      }
+
+      document
+        .getElementById("create-form")
+        .addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const button = document.getElementById("create-button");
+          const message = document.getElementById("create-message");
+          button.disabled = true;
+          message.className = "message";
+          message.textContent = "Creando instancia...";
+
+          try {
+            const created = await request("/whatsapp/instancias", {
+              method: "POST",
+              body: JSON.stringify({
+                nombre: document.getElementById("name").value,
+                numero: document.getElementById("phone").value
+              })
+            });
+            message.textContent = "Instancia creada. Generando código...";
+            await pairInstance(created.instancia.id);
+            message.textContent = `Instancia ${created.instancia.id} creada.`;
+            await loadInstances();
+          } catch (error) {
+            message.className = "message error";
+            message.textContent = error.message;
+          } finally {
+            button.disabled = !multiEnabled;
+          }
+        });
+
+      document
+        .getElementById("pair-button")
+        .addEventListener("click", async () => {
+          const button = document.getElementById("pair-button");
+          const isConnected =
+            document.getElementById("detail-status").textContent === "conectado";
+
+          if (
+            isConnected &&
+            !window.confirm(
+              "Esto desvinculará la sesión actual y generará un código nuevo. ¿Continuar?"
+            )
+          ) {
+            return;
+          }
+
+          button.disabled = true;
+          try {
+            await pairInstance(selectedInstance);
+            await loadDetail();
+          } catch (error) {
+            setText("detail-error", error.message);
+          } finally {
+            button.disabled = !multiEnabled;
+          }
+        });
+
+      document
+        .getElementById("groups-button")
+        .addEventListener("click", async () => {
+          const button = document.getElementById("groups-button");
+          button.disabled = true;
+          groupsPanel.classList.remove("hidden");
+          groupsContainer.replaceChildren();
+          groupDetail.className = "group-detail empty";
+          groupDetail.textContent = "Consultando grupos...";
+          groupsCount.textContent = "";
+
+          try {
+            const data = await request(
+              `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}/grupos`
+            );
+            renderGroupList(data.grupos || []);
+          } catch (error) {
+            groupsCount.textContent = "Error";
+            groupDetail.className = "group-detail empty";
+            groupDetail.textContent = error.message;
+          } finally {
+            button.disabled = !multiEnabled;
+          }
+        });
+
+      document
+        .getElementById("delete-button")
+        .addEventListener("click", () => {
+          openDeleteModal();
+        });
+
+      document
+        .getElementById("messages-button")
+        .addEventListener("click", openMessagesModal);
+      document
+        .getElementById("messages-close")
+        .addEventListener("click", closeMessagesModal);
+      document
+        .getElementById("messages-backdrop")
+        .addEventListener("click", closeMessagesModal);
+      document
+        .getElementById("messages-filters")
+        .addEventListener("submit", (event) => {
+          event.preventDefault();
+          loadMessages();
+        });
+      messagesAnalyze.addEventListener("click", analyzeInbox);
+      messagesPrompt.addEventListener("click", openPromptModal);
+      document
+        .getElementById("prompt-cancel")
+        .addEventListener("click", closePromptModal);
+      document
+        .getElementById("prompt-backdrop")
+        .addEventListener("click", closePromptModal);
+      promptSave.addEventListener("click", saveAnalystPrompt);
+      messagesAiModel.addEventListener("change", () => {
+        saveAiModel(messagesAiModel.value);
+        messagesAiModel.title =
+          messagesAiModel.selectedOptions[0]?.title || "";
+      });
+
+      document
+        .getElementById("delete-cancel")
+        .addEventListener("click", closeDeleteModal);
+      document
+        .getElementById("delete-backdrop")
+        .addEventListener("click", closeDeleteModal);
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !promptModal.classList.contains("hidden")) {
+          closePromptModal();
+        } else if (event.key === "Escape" && !messagesModal.classList.contains("hidden")) {
+          closeMessagesModal();
+        } else if (
+          event.key === "Escape" &&
+          !deleteModal.classList.contains("hidden")
+        ) {
+          closeDeleteModal();
+        }
+      });
+
+      deleteConfirm.addEventListener("click", async () => {
+        deleteConfirm.disabled = true;
+        deleteConfirm.textContent = "Eliminando...";
+        deleteModalError.textContent = "";
+
+        try {
+          await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}`,
+            { method: "DELETE" }
+          );
+          window.location.href = "/whatsapp/panel";
+        } catch (error) {
+          deleteModalError.textContent = error.message;
+          deleteConfirm.disabled = false;
+          deleteConfirm.textContent = "Sí, eliminar instancia";
+        }
+      });
+
+      async function init() {
+        try {
+          await loadMode();
+
+          if (selectedInstance) {
+            listView.classList.add("hidden");
+            detailView.classList.remove("hidden");
+            await loadDetail();
+            setInterval(() => {
+              loadDetail().catch(() => {});
+            }, 3000);
+          } else {
+            await loadInstances();
+            setInterval(() => {
+              loadInstances().catch(() => {});
+            }, 5000);
+          }
+        } catch (error) {
+          disabledBanner.style.display = "block";
+          disabledBanner.textContent = error.message;
+        }
+      }
+
+      init();
+    </script>
+  </body>
+</html>

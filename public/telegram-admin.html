@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telegram</title>
+    <link rel="stylesheet" href="/endpoints.css" />
+    <style>
+      :root {
+        --bg: #eef5ef;
+        --card: #ffffff;
+        --text: #17311d;
+        --muted: #5d7264;
+        --line: #d6e4d8;
+        --green: #1e8a38;
+        --green-light: #e6f4ea;
+        --red: #b91c1c;
+        --red-light: #fee2e2;
+        --amber: #b45309;
+        --amber-light: #fef3c7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 28px 16px 56px;
+        color: var(--text);
+        background: radial-gradient(circle at top, #dff3e4 0%, var(--bg) 52%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 880px;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.55rem;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .back {
+        color: var(--green);
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      .status-card {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 16px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        box-shadow: 0 5px 18px rgba(21, 43, 27, 0.06);
+      }
+
+      .bot-icon {
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
+        color: var(--green);
+        background: var(--green-light);
+        font-size: 1.4rem;
+        font-weight: 850;
+      }
+
+      .bot-name {
+        margin: 0 0 4px;
+        font-size: 1.05rem;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 11px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .badge.green {
+        color: var(--green);
+        background: var(--green-light);
+      }
+
+      .badge.amber {
+        color: var(--amber);
+        background: var(--amber-light);
+      }
+
+      .badge.red {
+        color: var(--red);
+        background: var(--red-light);
+      }
+
+      @media (max-width: 600px) {
+        .status-card {
+          grid-template-columns: 46px minmax(0, 1fr);
+        }
+
+        .bot-icon {
+          width: 46px;
+          height: 46px;
+        }
+
+        .badge {
+          grid-column: 2;
+          justify-self: start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <div>
+          <h1>Telegram</h1>
+          <div class="muted">Estado y documentación del bot</div>
+        </div>
+        <a class="back" href="/">Volver al estado general</a>
+      </header>
+
+      <section class="status-card" aria-labelledby="telegram-bot-name">
+        <div class="bot-icon" aria-hidden="true">T</div>
+        <div>
+          <h2 id="telegram-bot-name" class="bot-name">Consultando bot...</h2>
+          <div id="telegram-detail" class="muted">
+            Verificando la configuración de Telegram.
+          </div>
+        </div>
+        <span id="telegram-status" class="badge amber">consultando...</span>
+      </section>
+
+      <section class="api-card" aria-labelledby="telegram-api-heading">
+        <h2 id="telegram-api-heading" class="api-card-heading">
+          Endpoints de Telegram
+        </h2>
+        <div class="api-endpoint">
+          <span class="api-method get">GET</span>
+          <a class="api-path" href="/telegram/estado" target="_blank">/telegram/estado</a>
+          <span class="api-description">Estado del bot</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method post">POST</span>
+          <span class="api-path">/telegram/enviar-sync</span>
+          <span class="api-description">Enviar mensajes</span>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const botName = document.getElementById("telegram-bot-name");
+      const botDetail = document.getElementById("telegram-detail");
+      const statusBadge = document.getElementById("telegram-status");
+
+      function renderStatus(status) {
+        const configured = status.estado === "configurado";
+        const hasError = status.estado === "error_configuracion";
+
+        botName.textContent = status.bot ? `@${status.bot}` : "Bot de Telegram";
+        botDetail.textContent = status.bot
+          ? "Bot configurado para el envío de notificaciones."
+          : (status.detalle || "Configurá TELEGRAM_BOT_TOKEN en el archivo .env.");
+        statusBadge.textContent = configured
+          ? "configurado"
+          : (hasError ? "error de configuración" : "no configurado");
+        statusBadge.className =
+          `badge ${configured ? "green" : (hasError ? "red" : "amber")}`;
+      }
+
+      async function loadStatus() {
+        try {
+          const response = await fetch("/telegram/estado");
+          const status = await response.json();
+          if (!response.ok) {
+            throw new Error(status.error || "No se pudo consultar Telegram");
+          }
+          renderStatus(status);
+        } catch (error) {
+          botName.textContent = "Bot de Telegram";
+          botDetail.textContent = error.message;
+          statusBadge.textContent = "error";
+          statusBadge.className = "badge red";
+        }
+      }
+
+      loadStatus();
+    </script>
+  </body>
+</html>

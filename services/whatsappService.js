@@ -218,7 +218,42 @@ class WhatsAppService {
     return template.replace(/\{nombre\}/g, destino.nombre || "");
   }
 
-  async sendBatch({ destinos, mensaje, pausa = 3500 }) {
+  async deleteSentCopy(jid, sentMessage) {
+    if (!sentMessage?.key?.id) {
+      throw new Error("WhatsApp no devolvio la referencia del mensaje enviado");
+    }
+
+    const rawTimestamp = sentMessage.messageTimestamp;
+    const timestamp =
+      typeof rawTimestamp?.toNumber === "function"
+        ? rawTimestamp.toNumber()
+        : Number(rawTimestamp);
+
+    await this.socket.chatModify(
+      {
+        deleteForMe: {
+          deleteMedia: false,
+          key: {
+            ...sentMessage.key,
+            remoteJid: sentMessage.key.remoteJid || jid,
+            fromMe: true
+          },
+          timestamp:
+            Number.isFinite(timestamp) && timestamp > 0
+              ? timestamp
+              : Math.floor(Date.now() / 1000)
+        }
+      },
+      jid
+    );
+  }
+
+  async sendBatch({
+    destinos,
+    mensaje,
+    pausa = 3500,
+    eliminarCopia = false
+  }) {
     this.ensureConnected();
 
     const resultados = [];
@@ -231,15 +266,30 @@ class WhatsAppService {
         const jid = this.resolveJid(destino.numero);
         const texto = this.buildMessage(mensaje, destino);
 
-        await this.socket.sendMessage(jid, { text: texto });
-
-        resultados.push({
+        const sentMessage = await this.socket.sendMessage(jid, { text: texto });
+        const resultado = {
           numero: jid,
           nombre: destino.nombre || "",
           estado: "enviado"
-        });
+        };
 
         console.log(`[WA] Enviado a ${jid}`);
+
+        if (eliminarCopia) {
+          try {
+            await this.deleteSentCopy(jid, sentMessage);
+            resultado.copiaEliminada = true;
+            console.log(`[WA] Copia local eliminada para ${jid}`);
+          } catch (deleteError) {
+            resultado.copiaEliminada = false;
+            resultado.detalleEliminacion = deleteError.message;
+            console.warn(
+              `[WA] Mensaje enviado a ${jid}, pero no se pudo eliminar la copia local: ${deleteError.message}`
+            );
+          }
+        }
+
+        resultados.push(resultado);
       } catch (error) {
         resultados.push({
           numero: String(destino.numero || ""),
@@ -260,12 +310,19 @@ class WhatsAppService {
 
     const enviados = resultados.filter((item) => item.estado === "enviado").length;
     const errores = resultados.length - enviados;
+    const copiasEliminadas = resultados.filter(
+      (item) => item.copiaEliminada === true
+    ).length;
+    const erroresEliminacion = resultados.filter(
+      (item) => item.copiaEliminada === false
+    ).length;
 
     return {
       ok: true,
       canal: "whatsapp",
       enviados,
       errores,
+      ...(eliminarCopia ? { copiasEliminadas, erroresEliminacion } : {}),
       resultados
     };
   }

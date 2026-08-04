@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const telegramService = require("../services/telegramService");
 
 const router = express.Router();
@@ -24,6 +25,10 @@ function validatePayload(body) {
     throw error;
   }
 }
+
+router.get("/panel", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "telegram-admin.html"));
+});
 
 router.get("/estado", async (req, res, next) => {
   try {
