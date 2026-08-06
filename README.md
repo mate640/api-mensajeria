@@ -183,7 +183,12 @@ Endpoints:
 - `POST /whatsapp/instancias/:id/vincular`
 - `GET /whatsapp/instancias/:id/vinculacion`
 - `POST /whatsapp/instancias/:id/reconectar`
-- `GET /whatsapp/instancias/:id/mensajes?desde=AAAA-MM-DD&hasta=AAAA-MM-DD`
+- `GET /whatsapp/instancias/:id/mensajes?desde=AAAA-MM-DD&hasta=AAAA-MM-DD&chatId=JID`
+- `GET /whatsapp/instancias/:id/chats`
+- `GET /whatsapp/instancias/:id/configuracion-registro`
+- `PUT /whatsapp/instancias/:id/configuracion-registro`
+- `DELETE /whatsapp/instancias/:id/mensajes`
+- `POST /whatsapp/instancias/:id/resincronizar-contactos`
 - `GET /whatsapp/modelos-ia`
 - `POST /whatsapp/instancias/:id/analizar-bandeja`
 - `GET /whatsapp/instancias/:id/grupos`
@@ -208,6 +213,35 @@ El panel incluye una bandeja de mensajes por instancia con filtro de fechas,
 conversaciones, enviados, recibidos y tiempo promedio de respuesta. Solo
 aparecen los mensajes capturados desde que el servicio esta ejecutandose con el
 almacenamiento habilitado; no se importa el historial anterior de WhatsApp.
+La bandeja conserva los contactos sincronizados por Baileys, muestra primero el
+nombre agendado (o, como alternativa, el nombre de perfil) y usa las asociaciones
+LID/telefono recibidas por WhatsApp para evitar presentar un LID como si fuera un
+numero telefonico.
+Los nombres de los grupos se sincronizan al conectar cada instancia, se conservan
+en SQLite y se actualizan cuando WhatsApp informa cambios en sus metadatos.
+`GET /whatsapp/instancias/:id/chats` lista los contactos y grupos conocidos en
+SQLite para construir selectores externos. La consulta de mensajes acepta
+`chatId` de forma opcional y repetible; sin ese parametro conserva el
+comportamiento de devolver todos los chats del periodo. Cuando se incluyen uno
+o varios `chatId`, tanto las conversaciones como las metricas se calculan
+unicamente sobre esos chats. Se admiten hasta 100 por solicitud.
+En mensajes grupales se conserva `participante` y, cuando WhatsApp o la agenda
+permiten resolverlos, se agregan `telefonoParticipante` y
+`nombreParticipante`. El identificador original queda disponible como respaldo
+cuando no existe un nombre o telefono real conocido.
+Cada instancia puede definir si registra todos los mensajes nuevos, solamente
+los contactos y grupos seleccionados, o ninguno. La configuracion no elimina el
+historial existente y, si todavia no fue definida, conserva el comportamiento
+anterior de registrar todo.
+La misma configuracion permite conservar los mensajes sin vencimiento o durante
+un plazo por instancia. La limpieza se ejecuta al abrir el almacenamiento y luego
+una vez por dia, usando el indice por instancia y fecha. El panel tambien permite
+vaciar manualmente una bandeja completa escribiendo el identificador exacto de la
+instancia; esta accion no elimina contactos, grupos ni la configuracion.
+Si una sesion existente no vuelve a emitir su agenda al reconectarse, el boton
+`Sincronizar contactos` solicita de forma explicita una nueva instantanea de la
+coleccion de contactos, sin desvincular el numero. Si la sincronizacion falla, se
+restaura la version anterior de esa coleccion.
 
 La accion `Analizar bandeja` clasifica el motivo de cada conversacion, evalua
 la atencion, calcula la primera respuesta y muestra cuantos audios e imagenes no

@@ -148,6 +148,7 @@ class WhatsAppInstance {
     this.isInitializing = false;
     this.initPromise = null;
     this.reconnectTimer = null;
+    this.contactSyncPromise = null;
     this.generation = 0;
     this.jobs = new Map();
   }
@@ -243,10 +244,44 @@ class WhatsAppInstance {
         }
       });
 
-      socket.ev.on("messaging-history.set", ({ messages }) => {
+      socket.ev.on("contacts.upsert", (contacts) => {
         if (currentGeneration !== this.generation) {
           return;
         }
+
+        this.captureContactsSafely(contacts);
+      });
+
+      socket.ev.on("contacts.update", (contacts) => {
+        if (currentGeneration !== this.generation) {
+          return;
+        }
+
+        this.captureContactsSafely(contacts);
+      });
+
+      socket.ev.on("chats.phoneNumberShare", (mapping) => {
+        if (currentGeneration !== this.generation) {
+          return;
+        }
+
+        this.capturePhoneNumberShareSafely(mapping);
+      });
+
+      socket.ev.on("groups.update", (groups) => {
+        if (currentGeneration !== this.generation) {
+          return;
+        }
+
+        this.captureGroupsSafely(groups);
+      });
+
+      socket.ev.on("messaging-history.set", ({ messages, contacts }) => {
+        if (currentGeneration !== this.generation) {
+          return;
+        }
+
+        this.captureContactsSafely(contacts);
 
         let processed = 0;
         for (const message of messages || []) {
@@ -398,6 +433,17 @@ class WhatsAppInstance {
             `instancias, pero WhatsApp seguira conectado: ${error.message}`
         );
       }
+      try {
+        const groups = await this.getGroups();
+        console.log(
+          `[WA][${this.record.id}] Grupos sincronizados: ${groups.length}.`
+        );
+      } catch (error) {
+        console.error(
+          `[WA][${this.record.id}] No se pudieron sincronizar los grupos: ` +
+            error.message
+        );
+      }
       console.log(`[WA][${this.record.id}] WhatsApp conectado y verificado.`);
     }
 
@@ -538,7 +584,9 @@ class WhatsAppInstance {
   async getGroups() {
     this.ensureConnected();
     const grupos = await this.socket.groupFetchAllParticipating();
-    return Object.values(grupos)
+    const metadata = Object.values(grupos);
+    this.captureGroupsSafely(metadata);
+    return metadata
       .map((group) => ({
         id: group.id,
         groupId: group.id,
@@ -556,6 +604,7 @@ class WhatsAppInstance {
     const normalizedGroupId = normalizeGroupId(groupId);
     const metadata = await this.socket.groupMetadata(normalizedGroupId);
     const rawMetadata = JSON.parse(JSON.stringify(metadata));
+    this.captureGroupsSafely([rawMetadata]);
 
     return {
       groupId: rawMetadata.id,
@@ -605,12 +654,131 @@ class WhatsAppInstance {
     }
   }
 
+  captureContactsSafely(contacts) {
+    if (typeof this.manager.saveContacts !== "function") {
+      return 0;
+    }
+
+    try {
+      return this.manager.saveContacts(this.record.id, contacts);
+    } catch (error) {
+      console.error(
+        `[WA][${this.record.id}] No se pudieron guardar los contactos: ${error.message}`
+      );
+      return 0;
+    }
+  }
+
+  capturePhoneNumberShareSafely(mapping) {
+    if (typeof this.manager.savePhoneNumberShare !== "function") {
+      return false;
+    }
+
+    try {
+      return this.manager.savePhoneNumberShare(this.record.id, mapping);
+    } catch (error) {
+      console.error(
+        `[WA][${this.record.id}] No se pudo asociar el LID al teléfono: ${error.message}`
+      );
+      return false;
+    }
+  }
+
+  captureGroupsSafely(groups) {
+    if (typeof this.manager.saveGroups !== "function") {
+      return 0;
+    }
+
+    try {
+      return this.manager.saveGroups(this.record.id, groups);
+    } catch (error) {
+      console.error(
+        `[WA][${this.record.id}] No se pudieron guardar los grupos: ${error.message}`
+      );
+      return 0;
+    }
+  }
+
+  async resyncContacts() {
+    this.ensureConnected();
+
+    if (this.contactSyncPromise) {
+      return this.contactSyncPromise;
+    }
+
+    this.contactSyncPromise = this.performContactResync().finally(() => {
+      this.contactSyncPromise = null;
+    });
+    return this.contactSyncPromise;
+  }
+
+  async performContactResync() {
+    const collection = "critical_unblock_low";
+    const keys = this.authState?.keys;
+
+    if (!keys || typeof this.socket?.resyncAppState !== "function") {
+      throw createHttpError(
+        "Baileys no tiene disponible la resincronizacion de contactos",
+        503
+      );
+    }
+
+    const previousState = (
+      await keys.get("app-state-sync-version", [collection])
+    )[collection];
+
+    await keys.set({
+      "app-state-sync-version": { [collection]: null }
+    });
+
+    try {
+      await this.socket.resyncAppState([collection], true);
+      if (typeof this.socket.ev?.flush === "function") {
+        this.socket.ev.flush();
+      }
+    } catch (error) {
+      await keys.set({
+        "app-state-sync-version": { [collection]: previousState || null }
+      });
+      throw createHttpError(
+        `WhatsApp no pudo resincronizar los contactos: ${error.message}`,
+        503
+      );
+    }
+
+    const stats = this.manager.getContactStats(this.record.id);
+    console.log(
+      `[WA][${this.record.id}] Contactos resincronizados: ` +
+        `${stats.contactosConNombre}/${stats.contactos} con nombre.`
+    );
+    return {
+      instancia: this.record.id,
+      ...stats
+    };
+  }
+
   getMessagesToday() {
     return this.manager.getMessagesToday(this.record.id);
   }
 
   getMessages(options) {
     return this.manager.getMessages(this.record.id, options);
+  }
+
+  getStoredChats() {
+    return this.manager.getStoredChats(this.record.id);
+  }
+
+  getCaptureConfiguration() {
+    return this.manager.getCaptureConfiguration(this.record.id);
+  }
+
+  saveCaptureConfiguration(options) {
+    return this.manager.saveCaptureConfiguration(this.record.id, options);
+  }
+
+  clearInbox() {
+    return this.manager.clearInbox(this.record.id);
   }
 
   analyzeInbox(options) {
@@ -786,6 +954,10 @@ class WhatsAppManager {
       options.messagesDbFile ||
       path.join(__dirname, "..", "data", "whatsapp-messages.sqlite");
     this.messageStore = options.messageStore || null;
+    this.cleanupIntervalMs =
+      options.cleanupIntervalMs || 24 * 60 * 60 * 1000;
+    this.cleanupTimer = null;
+    this.cleanupInitialized = false;
     this.inboxAnalysisService =
       options.inboxAnalysisService || whatsappInboxAnalysisService;
   }
@@ -797,11 +969,62 @@ class WhatsAppManager {
       });
     }
 
+    if (!this.cleanupInitialized) {
+      this.cleanupInitialized = true;
+      this.runRetentionCleanup();
+    }
+
     return this.messageStore;
+  }
+
+  runRetentionCleanup() {
+    if (!this.messageStore) {
+      return { mensajesEliminados: 0, instancias: [] };
+    }
+    const result = this.messageStore.deleteExpiredMessages();
+    if (result.mensajesEliminados > 0) {
+      console.log(
+        `[WA][MULTI] Limpieza de retencion: ` +
+          `${result.mensajesEliminados} mensaje(s) eliminado(s).`
+      );
+    }
+    return result;
+  }
+
+  startRetentionCleanup() {
+    if (this.cleanupTimer) {
+      return;
+    }
+    this.cleanupTimer = setInterval(() => {
+      try {
+        this.runRetentionCleanup();
+      } catch (error) {
+        console.error(
+          `[WA][MULTI] Error en limpieza de retencion: ${error.message}`
+        );
+      }
+    }, this.cleanupIntervalMs);
+    this.cleanupTimer.unref?.();
   }
 
   saveMessage(instanceId, message, overrides) {
     return this.getMessageStore().saveMessage(instanceId, message, overrides);
+  }
+
+  saveContacts(instanceId, contacts) {
+    return this.getMessageStore().saveContacts(instanceId, contacts);
+  }
+
+  savePhoneNumberShare(instanceId, mapping) {
+    return this.getMessageStore().savePhoneNumberShare(instanceId, mapping);
+  }
+
+  saveGroups(instanceId, groups) {
+    return this.getMessageStore().saveGroups(instanceId, groups);
+  }
+
+  getContactStats(instanceId) {
+    return this.getMessageStore().getContactStats(instanceId);
   }
 
   getMessagesToday(instanceId, options) {
@@ -810,6 +1033,34 @@ class WhatsAppManager {
 
   getMessages(instanceId, options) {
     return this.getMessageStore().getMessages(instanceId, options);
+  }
+
+  getStoredChats(instanceId) {
+    return this.getMessageStore().getCaptureTargets(instanceId);
+  }
+
+  getCaptureConfiguration(instanceId) {
+    return {
+      instancia: instanceId,
+      ...this.getMessageStore().getCaptureSettings(instanceId),
+      destinos: this.getMessageStore().getCaptureTargets(instanceId)
+    };
+  }
+
+  saveCaptureConfiguration(instanceId, options = {}) {
+    return {
+      instancia: instanceId,
+      ...this.getMessageStore().saveCaptureSettings(
+        instanceId,
+        options.modo,
+        options.seleccionados,
+        options.retencionDias
+      )
+    };
+  }
+
+  clearInbox(instanceId) {
+    return this.getMessageStore().clearInbox(instanceId);
   }
 
   async analyzeInbox(instanceId, options) {
@@ -935,6 +1186,7 @@ class WhatsAppManager {
       }
     }
 
+    this.startRetentionCleanup();
     this.initialized = true;
     console.log(`[WA][MULTI] ${this.instances.size} instancia(s) cargada(s).`);
   }

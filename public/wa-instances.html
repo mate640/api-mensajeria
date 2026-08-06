@@ -642,6 +642,171 @@
         border-color: var(--line);
       }
 
+      .capture-dialog {
+        width: min(100%, 720px);
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+        border-color: var(--line);
+      }
+
+      .capture-modes {
+        display: grid;
+        gap: 8px;
+        margin: 18px 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .capture-mode {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+        gap: 10px;
+        padding: 11px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--text);
+        background: #fbfdfb;
+        cursor: pointer;
+      }
+
+      .capture-mode input,
+      .capture-target input {
+        width: auto;
+        margin: 3px 0 0;
+      }
+
+      .capture-mode strong,
+      .capture-mode small {
+        display: block;
+      }
+
+      .capture-mode small {
+        margin-top: 2px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .capture-selection {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--bg);
+      }
+
+      .capture-selection > label {
+        margin-bottom: 10px;
+      }
+
+      .capture-selected-summary {
+        margin-bottom: 12px;
+        padding: 11px 12px;
+        border: 1px solid #a9c9b0;
+        border-radius: 9px;
+        background: var(--green-light);
+      }
+
+      .capture-selected-summary strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 0.8rem;
+      }
+
+      .capture-selected-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      button.capture-selected-chip {
+        max-width: 100%;
+        padding: 5px 8px;
+        border: 1px solid #9abd9f;
+        color: var(--text);
+        background: #fff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .capture-retention {
+        margin: 16px 0;
+      }
+
+      .capture-danger {
+        margin-top: 18px;
+        padding: 14px;
+        border: 1px solid #efb8b8;
+        border-radius: 12px;
+        background: var(--red-light);
+      }
+
+      .capture-danger h3 {
+        margin: 0 0 6px;
+        color: var(--red);
+        font-size: 0.9rem;
+      }
+
+      .capture-danger p {
+        margin: 0 0 10px;
+        color: #7f1d1d;
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+
+      .capture-delete-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+
+      .capture-targets {
+        max-height: min(42vh, 360px);
+        overflow-y: auto;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #fff;
+      }
+
+      .capture-target-heading {
+        padding: 9px 12px;
+        color: var(--muted);
+        background: var(--bg);
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .capture-target {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border-top: 1px solid var(--line);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .capture-target span {
+        overflow-wrap: anywhere;
+        font-weight: 600;
+      }
+
+      .capture-empty {
+        padding: 18px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .capture-status {
+        min-height: 20px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .capture-status.error { color: var(--red); }
+
       .prompt-dialog textarea {
         width: 100%;
         min-height: min(58vh, 520px);
@@ -957,6 +1122,12 @@
         .conversation-analysis dl {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .capture-delete-row {
+          grid-template-columns: 1fr;
+        }
+        .capture-delete-row button {
+          width: 100%;
+        }
       }
     </style>
   </head>
@@ -1041,6 +1212,14 @@
             <button id="messages-button" type="button" class="secondary">
               MENSAJES
             </button>
+            <button
+              id="capture-button"
+              type="button"
+              class="secondary"
+              data-inspector-id="whatsapp.instancia.configurar-registro"
+            >
+              Configurar registro
+            </button>
             <button id="delete-button" type="button" class="danger">
               Eliminar instancia
             </button>
@@ -1110,6 +1289,16 @@
           <span class="api-description">Mensajes y estadísticas por fechas</span>
         </div>
         <div class="api-endpoint">
+          <span class="api-method get">GET/PUT</span>
+          <span class="api-path">/whatsapp/instancias/:id/configuracion-registro</span>
+          <span class="api-description">Política de almacenamiento</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method delete">DELETE</span>
+          <span class="api-path">/whatsapp/instancias/:id/mensajes</span>
+          <span class="api-description">Vaciar bandeja de la instancia</span>
+        </div>
+        <div class="api-endpoint">
           <span class="api-method get">GET</span>
           <span class="api-path">/whatsapp/modelos-ia</span>
           <span class="api-description">Modelos compatibles disponibles</span>
@@ -1175,6 +1364,112 @@
     </div>
 
     <div
+      id="capture-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="capture-modal-title"
+      data-inspector-id="whatsapp.instancia.registro"
+      data-inspector-screen="Configuración de registro de WhatsApp"
+      data-inspector-component="CaptureSettingsModal"
+      data-inspector-source="public/wa-instances.html"
+    >
+      <div id="capture-backdrop" class="modal-backdrop"></div>
+      <div class="modal-dialog capture-dialog">
+        <h2 id="capture-modal-title">Qué mensajes guardar</h2>
+        <p class="muted">
+          La selección se aplica a los mensajes nuevos. El plazo de conservación
+          también depura el historial guardado cuando supera la antigüedad elegida.
+        </p>
+
+        <fieldset class="capture-modes">
+          <label class="capture-mode">
+            <input type="radio" name="capture-mode" value="todo" checked />
+            <span>
+              <strong>Guardar todo</strong>
+              <small>Registra todos los contactos y grupos.</small>
+            </span>
+          </label>
+          <label class="capture-mode">
+            <input type="radio" name="capture-mode" value="seleccionados" />
+            <span>
+              <strong>Guardar sólo seleccionados</strong>
+              <small>Registra únicamente los contactos y grupos elegidos.</small>
+            </span>
+          </label>
+          <label class="capture-mode">
+            <input type="radio" name="capture-mode" value="nada" />
+            <span>
+              <strong>No guardar nada</strong>
+              <small>No incorpora mensajes nuevos a SQLite.</small>
+            </span>
+          </label>
+        </fieldset>
+
+        <label class="capture-retention" for="capture-retention">
+          Conservar mensajes
+          <select id="capture-retention">
+            <option value="">Sin vencimiento</option>
+            <option value="7">7 días</option>
+            <option value="30">30 días</option>
+            <option value="60">60 días</option>
+            <option value="90">90 días</option>
+            <option value="180">180 días</option>
+            <option value="365">1 año</option>
+            <option value="730">2 años</option>
+          </select>
+          <small>La limpieza se ejecuta al iniciar y luego una vez por día.</small>
+        </label>
+
+        <section id="capture-selection" class="capture-selection hidden">
+          <div class="capture-selected-summary">
+            <strong id="capture-selected-count">Seleccionados (0)</strong>
+            <div id="capture-selected-list" class="capture-selected-list"></div>
+          </div>
+          <label for="capture-search">
+            Buscar contactos o grupos
+            <input
+              id="capture-search"
+              type="search"
+              placeholder="Nombre o número"
+              autocomplete="off"
+            />
+          </label>
+          <div id="capture-targets" class="capture-targets"></div>
+        </section>
+
+        <div id="capture-status" class="capture-status" aria-live="polite"></div>
+
+        <section class="capture-danger">
+          <h3>Vaciar bandeja</h3>
+          <p>
+            Elimina definitivamente todos los mensajes guardados de esta
+            instancia. Los contactos, grupos y esta configuración se conservan.
+            Para confirmar, escribí <strong id="capture-delete-code"></strong>.
+          </p>
+          <div class="capture-delete-row">
+            <input
+              id="capture-delete-confirmation"
+              type="text"
+              aria-label="Confirmación para vaciar la bandeja"
+              autocomplete="off"
+            />
+            <button id="capture-delete" type="button" class="danger">
+              Vaciar bandeja
+            </button>
+          </div>
+        </section>
+
+        <div class="modal-actions">
+          <button id="capture-cancel" type="button" class="secondary">
+            Cancelar
+          </button>
+          <button id="capture-save" type="button">Guardar configuración</button>
+        </div>
+      </div>
+    </div>
+
+    <div
       id="messages-modal"
       class="modal messages-modal hidden"
       role="dialog"
@@ -1215,6 +1510,9 @@
           </label>
           <div class="messages-filter-actions">
             <button id="messages-load" type="submit">Consultar</button>
+            <button id="messages-sync-contacts" type="button" class="secondary">
+              Sincronizar contactos
+            </button>
             <button
               id="messages-analyze"
               type="button"
@@ -1319,11 +1617,32 @@
       const deleteInstanceName = document.getElementById("delete-instance-name");
       const deleteModalError = document.getElementById("delete-modal-error");
       const deleteConfirm = document.getElementById("delete-confirm");
+      const captureModal = document.getElementById("capture-modal");
+      const captureButton = document.getElementById("capture-button");
+      const captureSelection = document.getElementById("capture-selection");
+      const captureRetention = document.getElementById("capture-retention");
+      const captureSearch = document.getElementById("capture-search");
+      const captureTargetsContainer = document.getElementById("capture-targets");
+      const captureSelectedCount = document.getElementById(
+        "capture-selected-count"
+      );
+      const captureSelectedList = document.getElementById(
+        "capture-selected-list"
+      );
+      const captureStatus = document.getElementById("capture-status");
+      const captureSave = document.getElementById("capture-save");
+      const captureDelete = document.getElementById("capture-delete");
+      const captureDeleteConfirmation = document.getElementById(
+        "capture-delete-confirmation"
+      );
       const messagesModal = document.getElementById("messages-modal");
       const messagesFrom = document.getElementById("messages-from");
       const messagesTo = document.getElementById("messages-to");
       const messagesStatus = document.getElementById("messages-status");
       const messagesLoad = document.getElementById("messages-load");
+      const messagesSyncContacts = document.getElementById(
+        "messages-sync-contacts"
+      );
       const messagesAnalyze = document.getElementById("messages-analyze");
       const messagesPrompt = document.getElementById("messages-prompt");
       const messagesAiModel = document.getElementById("messages-ai-model");
@@ -1343,6 +1662,8 @@
       let currentMessageReport = null;
       let messageConversations = [];
       let inboxAnalysisByChat = new Map();
+      let captureTargets = [];
+      let captureSelected = new Set();
       let multiEnabled = false;
       const aiModelStorageKey = "whatsapp-inbox-analysis-model";
 
@@ -1374,6 +1695,278 @@
           error: "error"
         };
         return labels[status] || status;
+      }
+
+      function selectedCaptureMode() {
+        return document.querySelector('input[name="capture-mode"]:checked')
+          ?.value || "todo";
+      }
+
+      function updateCaptureSelectionVisibility() {
+        captureSelection.classList.toggle(
+          "hidden",
+          selectedCaptureMode() !== "seleccionados"
+        );
+      }
+
+      function captureTargetLabel(target) {
+        if (target.tipo === "grupo") {
+          return target.nombre || `Grupo ${target.id}`;
+        }
+        const number = String(target.id || "").split("@")[0].split(":")[0];
+        const phone = target.id.endsWith("@s.whatsapp.net")
+          ? `+${number}`
+          : target.id;
+        return target.nombre ? `${target.nombre} · ${phone}` : phone;
+      }
+
+      function renderCaptureSelected() {
+        captureSelectedCount.textContent =
+          `Seleccionados (${captureSelected.size})`;
+        captureSelectedList.replaceChildren();
+
+        const selectedTargets = [...captureSelected]
+          .map(
+            (id) =>
+              captureTargets.find((target) => target.id === id) || {
+                id,
+                tipo: id.endsWith("@g.us") ? "grupo" : "contacto",
+                nombre: null
+              }
+          )
+          .sort((left, right) =>
+            captureTargetLabel(left).localeCompare(
+              captureTargetLabel(right),
+              "es"
+            )
+          );
+
+        for (const target of selectedTargets) {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "capture-selected-chip";
+          chip.textContent = `× ${captureTargetLabel(target)}`;
+          chip.setAttribute(
+            "aria-label",
+            `Quitar ${captureTargetLabel(target)} de la selección`
+          );
+          chip.addEventListener("click", () => {
+            captureSelected.delete(target.id);
+            renderCaptureTargets();
+          });
+          captureSelectedList.appendChild(chip);
+        }
+
+        if (!selectedTargets.length) {
+          const empty = document.createElement("span");
+          empty.className = "muted";
+          empty.textContent = "Todavía no elegiste ningún destino.";
+          captureSelectedList.appendChild(empty);
+        }
+      }
+
+      function renderCaptureTargets() {
+        const query = captureSearch.value.trim().toLocaleLowerCase("es");
+        const visible = captureTargets
+          .filter((target) =>
+            `${target.nombre || ""} ${target.id}`
+              .toLocaleLowerCase("es")
+              .includes(query)
+          )
+          .sort((left, right) => {
+            const selectionOrder =
+              Number(captureSelected.has(right.id)) -
+              Number(captureSelected.has(left.id));
+            return selectionOrder ||
+              captureTargetLabel(left).localeCompare(
+                captureTargetLabel(right),
+                "es"
+              );
+          });
+        captureTargetsContainer.replaceChildren();
+        renderCaptureSelected();
+
+        for (const type of ["grupo", "contacto"]) {
+          const targets = visible.filter((target) => target.tipo === type);
+          if (!targets.length) continue;
+
+          const heading = document.createElement("div");
+          heading.className = "capture-target-heading";
+          heading.textContent = type === "grupo" ? "Grupos" : "Contactos";
+          captureTargetsContainer.appendChild(heading);
+
+          for (const target of targets) {
+            const label = document.createElement("label");
+            label.className = "capture-target";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = captureSelected.has(target.id);
+            checkbox.addEventListener("change", () => {
+              if (checkbox.checked) captureSelected.add(target.id);
+              else captureSelected.delete(target.id);
+              renderCaptureTargets();
+            });
+            const text = document.createElement("span");
+            text.textContent = captureTargetLabel(target);
+            label.append(checkbox, text);
+            captureTargetsContainer.appendChild(label);
+          }
+        }
+
+        if (!captureTargetsContainer.children.length) {
+          const empty = document.createElement("div");
+          empty.className = "capture-empty";
+          empty.textContent = query
+            ? "No hay coincidencias."
+            : "Todavía no hay contactos ni grupos sincronizados.";
+          captureTargetsContainer.appendChild(empty);
+        }
+      }
+
+      async function openCaptureModal() {
+        let loaded = false;
+        captureModal.classList.remove("hidden");
+        document.body.classList.add("modal-open");
+        captureStatus.className = "capture-status";
+        captureStatus.textContent = "Consultando configuración...";
+        captureSave.disabled = true;
+        captureSearch.value = "";
+        captureDeleteConfirmation.value = "";
+        document.getElementById("capture-delete-code").textContent =
+          selectedInstance;
+
+        try {
+          const data = await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}` +
+              "/configuracion-registro"
+          );
+          const mode = document.querySelector(
+            `input[name="capture-mode"][value="${data.modo}"]`
+          );
+          if (mode) mode.checked = true;
+          const retentionValue = data.retencionDias === null
+            ? ""
+            : String(data.retencionDias);
+          if (
+            retentionValue &&
+            !captureRetention.querySelector(`option[value="${retentionValue}"]`)
+          ) {
+            captureRetention.appendChild(
+              new Option(`${retentionValue} días`, retentionValue)
+            );
+          }
+          captureRetention.value = retentionValue;
+          captureSelected = new Set(data.seleccionados || []);
+          captureTargets = [
+            ...(data.destinos?.grupos || []),
+            ...(data.destinos?.contactos || [])
+          ];
+          const knownIds = new Set(captureTargets.map((target) => target.id));
+          for (const id of captureSelected) {
+            if (!knownIds.has(id)) {
+              captureTargets.push({
+                id,
+                tipo: id.endsWith("@g.us") ? "grupo" : "contacto",
+                nombre: null
+              });
+            }
+          }
+          updateCaptureSelectionVisibility();
+          renderCaptureTargets();
+          captureStatus.textContent =
+            data.modo === "todo"
+              ? "Actualmente se guardan todos los mensajes."
+              : data.modo === "nada"
+                ? "Actualmente no se guardan mensajes."
+                : `${captureSelected.size} destino(s) seleccionado(s).`;
+          loaded = true;
+          document.querySelector('input[name="capture-mode"]:checked')?.focus();
+        } catch (error) {
+          captureStatus.className = "capture-status error";
+          captureStatus.textContent = error.message;
+        } finally {
+          captureSave.disabled = !loaded;
+        }
+      }
+
+      function closeCaptureModal() {
+        captureModal.classList.add("hidden");
+        document.body.classList.remove("modal-open");
+        captureButton.focus();
+      }
+
+      async function saveCaptureConfiguration() {
+        const modo = selectedCaptureMode();
+        if (modo === "seleccionados" && captureSelected.size === 0) {
+          captureStatus.className = "capture-status error";
+          captureStatus.textContent =
+            "Elegí al menos un contacto o grupo, o seleccioná No guardar nada.";
+          return;
+        }
+
+        captureSave.disabled = true;
+        captureStatus.className = "capture-status";
+        captureStatus.textContent = "Guardando configuración...";
+        try {
+          await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}` +
+              "/configuracion-registro",
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                modo,
+                seleccionados: [...captureSelected],
+                retencionDias: captureRetention.value
+                  ? Number(captureRetention.value)
+                  : null
+              })
+            }
+          );
+          captureSave.disabled = false;
+          closeCaptureModal();
+          const detailMessage = document.getElementById("detail-error");
+          detailMessage.className = "message";
+          detailMessage.textContent = "Configuración de registro guardada.";
+        } catch (error) {
+          captureStatus.className = "capture-status error";
+          captureStatus.textContent = error.message;
+        } finally {
+          captureSave.disabled = false;
+        }
+      }
+
+      async function clearCaptureInbox() {
+        if (captureDeleteConfirmation.value.trim() !== selectedInstance) {
+          captureStatus.className = "capture-status error";
+          captureStatus.textContent =
+            `Escribí ${selectedInstance} para confirmar el vaciado.`;
+          captureDeleteConfirmation.focus();
+          return;
+        }
+
+        captureDelete.disabled = true;
+        captureSave.disabled = true;
+        captureStatus.className = "capture-status";
+        captureStatus.textContent = "Vaciando la bandeja...";
+        try {
+          const data = await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}` +
+              "/mensajes",
+            {
+              method: "DELETE",
+              body: JSON.stringify({ confirmacion: selectedInstance })
+            }
+          );
+          captureDeleteConfirmation.value = "";
+          captureStatus.textContent =
+            `${data.mensajesEliminados} mensaje(s) eliminado(s).`;
+        } catch (error) {
+          captureStatus.className = "capture-status error";
+          captureStatus.textContent = error.message;
+        } finally {
+          captureDelete.disabled = false;
+          captureSave.disabled = false;
+        }
       }
 
       function formatDate(value) {
@@ -1440,6 +2033,21 @@
           reactionMessage: "Reacción"
         };
         return `[${labels[message.tipo] || "Mensaje sin texto"}]`;
+      }
+
+      function conversationTitle(conversation) {
+        if (conversation.esGrupo) {
+          return conversation.nombre || `Grupo ${conversation.numero}`;
+        }
+
+        const phone =
+          !conversation.esLid && conversation.numero
+            ? `+${conversation.numero}`
+            : null;
+        if (conversation.nombre && phone) {
+          return `${conversation.nombre} · ${phone}`;
+        }
+        return conversation.nombre || phone || "Contacto sin identificar";
       }
 
       function getSavedAiModel() {
@@ -1780,6 +2388,9 @@
         const chatByNumber = new Map(
           messageConversations.map((conversation) => [conversation.numero, conversation.chat])
         );
+        const conversationByNumber = new Map(
+          messageConversations.map((conversation) => [conversation.numero, conversation])
+        );
         inboxAnalysisByChat = new Map(
           (data.tipificaciones || [])
             .filter((analysis) => chatByNumber.has(analysis.numero))
@@ -1819,7 +2430,9 @@
           const row = document.createElement("tr");
           if (item.requiereAccion) row.className = "requires-action";
           [
-            item.numero,
+            conversationTitle(conversationByNumber.get(item.numero) || {
+              numero: item.numero
+            }),
             item.categoria,
             item.estado,
             item.requiereAccion ? "Sí" : "No",
@@ -1840,7 +2453,10 @@
         const opportunityList = document.createElement("ul");
         (data.oportunidadesPerdidas || []).forEach((item) => {
           const entry = document.createElement("li");
-          entry.textContent = `${item.numero}: ${item.descripcion}`;
+          const conversation = conversationByNumber.get(item.numero);
+          entry.textContent =
+            `${conversationTitle(conversation || { numero: item.numero })}: ` +
+            item.descripcion;
           opportunityList.appendChild(entry);
         });
         if (!opportunityList.children.length) {
@@ -1883,9 +2499,7 @@
         threadHeader.classList.remove("hidden");
 
         const title = document.createElement("strong");
-        title.textContent = conversation.esGrupo
-          ? `Grupo ${conversation.numero}`
-          : `+${conversation.numero}`;
+        title.textContent = conversationTitle(conversation);
         const summary = document.createElement("small");
         summary.textContent =
           `${conversation.recibidos} recibidos · ${conversation.enviados} enviados`;
@@ -1970,9 +2584,7 @@
           const top = document.createElement("div");
           top.className = "conversation-top";
           const number = document.createElement("strong");
-          number.textContent = conversation.esGrupo
-            ? `Grupo ${conversation.numero}`
-            : `+${conversation.numero}`;
+          number.textContent = conversationTitle(conversation);
           const time = document.createElement("time");
           time.dateTime = conversation.ultimoMensajeEn;
           time.textContent = formatMessageTime(conversation.ultimoMensajeEn);
@@ -2041,6 +2653,33 @@
           messagesStatus.textContent = error.message;
           messagesAnalyze.disabled = true;
         } finally {
+          messagesLoad.disabled = !multiEnabled;
+        }
+      }
+
+      async function syncContacts() {
+        messagesSyncContacts.disabled = true;
+        messagesLoad.disabled = true;
+        messagesAnalyze.disabled = true;
+        messagesStatus.className = "messages-status";
+        messagesStatus.textContent =
+          "Sincronizando la agenda de WhatsApp. Puede demorar unos segundos...";
+
+        try {
+          const data = await request(
+            `/whatsapp/instancias/${encodeURIComponent(selectedInstance)}` +
+              "/resincronizar-contactos",
+            { method: "POST" }
+          );
+          await loadMessages();
+          messagesStatus.textContent =
+            `${data.contactosConNombre} contacto(s) con nombre sincronizados ` +
+            `de ${data.contactos} contacto(s).`;
+        } catch (error) {
+          messagesStatus.className = "messages-status error";
+          messagesStatus.textContent = error.message;
+        } finally {
+          messagesSyncContacts.disabled = !multiEnabled;
           messagesLoad.disabled = !multiEnabled;
         }
       }
@@ -2388,6 +3027,21 @@
       document
         .getElementById("messages-button")
         .addEventListener("click", openMessagesModal);
+      captureButton.addEventListener("click", openCaptureModal);
+      document
+        .querySelectorAll('input[name="capture-mode"]')
+        .forEach((input) =>
+          input.addEventListener("change", updateCaptureSelectionVisibility)
+        );
+      captureSearch.addEventListener("input", renderCaptureTargets);
+      document
+        .getElementById("capture-cancel")
+        .addEventListener("click", closeCaptureModal);
+      document
+        .getElementById("capture-backdrop")
+        .addEventListener("click", closeCaptureModal);
+      captureSave.addEventListener("click", saveCaptureConfiguration);
+      captureDelete.addEventListener("click", clearCaptureInbox);
       document
         .getElementById("messages-close")
         .addEventListener("click", closeMessagesModal);
@@ -2401,6 +3055,7 @@
           loadMessages();
         });
       messagesAnalyze.addEventListener("click", analyzeInbox);
+      messagesSyncContacts.addEventListener("click", syncContacts);
       messagesPrompt.addEventListener("click", openPromptModal);
       document
         .getElementById("prompt-cancel")
@@ -2423,7 +3078,9 @@
         .addEventListener("click", closeDeleteModal);
 
       document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && !promptModal.classList.contains("hidden")) {
+        if (event.key === "Escape" && !captureModal.classList.contains("hidden")) {
+          closeCaptureModal();
+        } else if (event.key === "Escape" && !promptModal.classList.contains("hidden")) {
           closePromptModal();
         } else if (event.key === "Escape" && !messagesModal.classList.contains("hidden")) {
           closeMessagesModal();

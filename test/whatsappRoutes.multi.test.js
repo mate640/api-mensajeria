@@ -170,11 +170,222 @@ test("consulta mensajes, conversaciones y estadisticas por fechas", async (t) =>
   assert.equal(response.status, 200);
   assert.deepEqual(receivedOptions, {
     from: "2026-07-01",
-    to: "2026-07-30"
+    to: "2026-07-30",
+    chatIds: []
   });
   assert.equal(body.estadisticas.mensajesRecibidos, 1);
   assert.equal(body.estadisticas.tiempoPromedioRespuestaSegundos, 90);
   assert.equal(body.conversaciones[0].mensajes.length, 2);
+});
+
+test("envia uno o varios filtros de chat al consultar mensajes", async (t) => {
+  let receivedOptions;
+  const instance = {
+    record: { id: "REPORTES" },
+    getMessages: (options) => {
+      receivedOptions = options;
+      return {
+        instancia: "REPORTES",
+        desde: options.from,
+        hasta: options.to,
+        cantidad: 0,
+        estadisticas: { conversaciones: 0 },
+        conversaciones: [],
+        mensajes: []
+      };
+    }
+  };
+  whatsappManager.instances.set("REPORTES", instance);
+  t.after(() => whatsappManager.instances.delete("REPORTES"));
+
+  const base = await startTestServer(t);
+  const query = new URLSearchParams({
+    desde: "2026-08-01",
+    hasta: "2026-08-05"
+  });
+  query.append("chatId", "120363111111111111@g.us");
+  query.append("chatId", "5492244111111@s.whatsapp.net");
+  const response = await fetch(
+    `${base}/whatsapp/instancias/REPORTES/mensajes?${query}`
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(receivedOptions.chatIds, [
+    "120363111111111111@g.us",
+    "5492244111111@s.whatsapp.net"
+  ]);
+});
+
+test("lista contactos y grupos guardados para una instancia", async (t) => {
+  const instance = {
+    record: { id: "VENTAS" },
+    getStoredChats: () => ({
+      contactos: [
+        {
+          id: "5492244111111@s.whatsapp.net",
+          tipo: "contacto",
+          nombre: "Cliente"
+        }
+      ],
+      grupos: [
+        {
+          id: "120363111111111111@g.us",
+          tipo: "grupo",
+          nombre: "Ventas"
+        }
+      ]
+    })
+  };
+  whatsappManager.instances.set("VENTAS", instance);
+  t.after(() => whatsappManager.instances.delete("VENTAS"));
+
+  const base = await startTestServer(t);
+  const response = await fetch(`${base}/whatsapp/instancias/VENTAS/chats`);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.contactos[0].nombre, "Cliente");
+  assert.equal(body.grupos[0].nombre, "Ventas");
+});
+
+test("consulta y actualiza la configuracion de registro", async (t) => {
+  const saved = [];
+  const instance = {
+    record: { id: "VENTAS" },
+    getCaptureConfiguration: () => ({
+      instancia: "VENTAS",
+      modo: "todo",
+      seleccionados: [],
+      retencionDias: null,
+      actualizadoEn: null,
+      destinos: {
+        contactos: [
+          {
+            id: "5491111111111@s.whatsapp.net",
+            tipo: "contacto",
+            nombre: "Cliente"
+          }
+        ],
+        grupos: []
+      }
+    }),
+    saveCaptureConfiguration: (options) => {
+      saved.push(options);
+      return {
+        instancia: "VENTAS",
+        modo: options.modo,
+        seleccionados: options.seleccionados,
+        actualizadoEn: "2026-08-05T12:00:00.000Z"
+      };
+    }
+  };
+  whatsappManager.instances.set("VENTAS", instance);
+  t.after(() => whatsappManager.instances.delete("VENTAS"));
+
+  const base = await startTestServer(t);
+  const getResponse = await fetch(
+    `${base}/whatsapp/instancias/VENTAS/configuracion-registro`
+  );
+  const getBody = await getResponse.json();
+  assert.equal(getResponse.status, 200);
+  assert.equal(getBody.modo, "todo");
+  assert.equal(getBody.destinos.contactos[0].nombre, "Cliente");
+
+  const putResponse = await fetch(
+    `${base}/whatsapp/instancias/VENTAS/configuracion-registro`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        modo: "seleccionados",
+        seleccionados: ["5491111111111@s.whatsapp.net"],
+        retencionDias: 30
+      })
+    }
+  );
+  const putBody = await putResponse.json();
+  assert.equal(putResponse.status, 200);
+  assert.equal(putBody.modo, "seleccionados");
+  assert.deepEqual(saved, [
+    {
+      modo: "seleccionados",
+      seleccionados: ["5491111111111@s.whatsapp.net"],
+      retencionDias: 30
+    }
+  ]);
+});
+
+test("vacia la bandeja solo con confirmacion exacta", async (t) => {
+  let clearCalls = 0;
+  const instance = {
+    record: { id: "VENTAS" },
+    clearInbox: () => {
+      clearCalls += 1;
+      return {
+        instancia: "VENTAS",
+        mensajesEliminados: 42,
+        etiquetasEliminadas: 3
+      };
+    }
+  };
+  whatsappManager.instances.set("VENTAS", instance);
+  t.after(() => whatsappManager.instances.delete("VENTAS"));
+
+  const base = await startTestServer(t);
+  const rejected = await fetch(
+    `${base}/whatsapp/instancias/VENTAS/mensajes`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmacion: "INCORRECTA" })
+    }
+  );
+  assert.equal(rejected.status, 400);
+  assert.equal(clearCalls, 0);
+
+  const accepted = await fetch(
+    `${base}/whatsapp/instancias/VENTAS/mensajes`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmacion: "VENTAS" })
+    }
+  );
+  const body = await accepted.json();
+  assert.equal(accepted.status, 200);
+  assert.equal(body.mensajesEliminados, 42);
+  assert.equal(clearCalls, 1);
+});
+
+test("resincroniza los contactos de una instancia", async (t) => {
+  let called = 0;
+  const instance = {
+    record: { id: "VENTAS" },
+    resyncContacts: async () => {
+      called += 1;
+      return {
+        instancia: "VENTAS",
+        contactos: 20,
+        nombresAgendados: 16,
+        contactosConNombre: 18,
+        contactosConTelefono: 17
+      };
+    }
+  };
+  whatsappManager.instances.set("VENTAS", instance);
+  t.after(() => whatsappManager.instances.delete("VENTAS"));
+
+  const base = await startTestServer(t);
+  const response = await fetch(
+    `${base}/whatsapp/instancias/VENTAS/resincronizar-contactos`,
+    { method: "POST" }
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.contactosConNombre, 18);
+  assert.equal(called, 1);
 });
 
 test("analiza la bandeja de una instancia para el rango elegido", async (t) => {

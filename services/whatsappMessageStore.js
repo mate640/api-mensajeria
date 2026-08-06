@@ -88,6 +88,15 @@ function isPhoneJid(value) {
   return /^\d+(?::\d+)?@s\.whatsapp\.net$/.test(String(value || ""));
 }
 
+function isLidJid(value) {
+  return /^\d+@lid$/.test(String(value || ""));
+}
+
+function normalizeContactName(value) {
+  const name = String(value || "").trim();
+  return name || null;
+}
+
 function getPhoneJidFromMessageKey(key = {}) {
   if (isPhoneJid(key.remoteJidAlt)) {
     return key.remoteJidAlt;
@@ -381,6 +390,9 @@ class WhatsAppMessageStore {
       CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_instance_timestamp
       ON whatsapp_messages(instance_id, message_timestamp);
 
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_instance_remote
+      ON whatsapp_messages(instance_id, remote_jid);
+
       CREATE TABLE IF NOT EXISTS whatsapp_conversation_labels (
         instance_id TEXT NOT NULL,
         remote_jid TEXT NOT NULL,
@@ -398,8 +410,165 @@ class WhatsAppMessageStore {
         analyst_prompt TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS whatsapp_contacts (
+        instance_id TEXT NOT NULL,
+        contact_jid TEXT NOT NULL,
+        phone_jid TEXT,
+        lid_jid TEXT,
+        saved_name TEXT,
+        notify_name TEXT,
+        verified_name TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (instance_id, contact_jid)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_contacts_instance_phone
+      ON whatsapp_contacts(instance_id, phone_jid);
+
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_contacts_instance_lid
+      ON whatsapp_contacts(instance_id, lid_jid);
+
+      CREATE TABLE IF NOT EXISTS whatsapp_groups (
+        instance_id TEXT NOT NULL,
+        group_jid TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        description TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (instance_id, group_jid)
+      );
+
+      CREATE TABLE IF NOT EXISTS whatsapp_capture_settings (
+        instance_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL CHECK(mode IN ('todo', 'seleccionados', 'nada')),
+        retention_days INTEGER,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS whatsapp_capture_targets (
+        instance_id TEXT NOT NULL,
+        chat_jid TEXT NOT NULL,
+        target_type TEXT NOT NULL CHECK(target_type IN ('contacto', 'grupo')),
+        PRIMARY KEY (instance_id, chat_jid)
+      );
     `);
+    const captureSettingColumns = this.database
+      .pragma("table_info(whatsapp_capture_settings)")
+      .map((column) => column.name);
+    if (!captureSettingColumns.includes("retention_days")) {
+      this.database.exec(`
+        ALTER TABLE whatsapp_capture_settings
+        ADD COLUMN retention_days INTEGER
+      `);
+    }
     this.lidToPhoneJid = new Map();
+    this.upsertContactStatement = this.database.prepare(`
+      INSERT INTO whatsapp_contacts (
+        instance_id, contact_jid, phone_jid, lid_jid, saved_name,
+        notify_name, verified_name, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(instance_id, contact_jid) DO UPDATE SET
+        phone_jid = COALESCE(excluded.phone_jid, phone_jid),
+        lid_jid = COALESCE(excluded.lid_jid, lid_jid),
+        saved_name = COALESCE(excluded.saved_name, saved_name),
+        notify_name = COALESCE(excluded.notify_name, notify_name),
+        verified_name = COALESCE(excluded.verified_name, verified_name),
+        updated_at = excluded.updated_at
+    `);
+    this.selectContactAliasesStatement = this.database.prepare(`
+      SELECT *
+      FROM whatsapp_contacts
+      WHERE instance_id = ?
+        AND (
+          contact_jid IN (?, ?)
+          OR phone_jid IN (?, ?)
+          OR lid_jid IN (?, ?)
+        )
+    `);
+    this.selectContactStatement = this.database.prepare(`
+      SELECT *
+      FROM whatsapp_contacts
+      WHERE instance_id = ?
+        AND (contact_jid = ? OR phone_jid = ? OR lid_jid = ?)
+      ORDER BY
+        CASE WHEN saved_name IS NOT NULL THEN 0 ELSE 1 END,
+        CASE WHEN verified_name IS NOT NULL THEN 0 ELSE 1 END,
+        CASE WHEN notify_name IS NOT NULL THEN 0 ELSE 1 END
+      LIMIT 1
+    `);
+    this.saveContactsTransaction = this.database.transaction(
+      (instanceId, contacts) => {
+        for (const contact of contacts) {
+          this.saveContact(instanceId, contact);
+        }
+      }
+    );
+    this.upsertGroupStatement = this.database.prepare(`
+      INSERT INTO whatsapp_groups (
+        instance_id, group_jid, subject, description, updated_at
+      ) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(instance_id, group_jid) DO UPDATE SET
+        subject = excluded.subject,
+        description = excluded.description,
+        updated_at = excluded.updated_at
+    `);
+    this.selectGroupStatement = this.database.prepare(`
+      SELECT subject, description
+      FROM whatsapp_groups
+      WHERE instance_id = ? AND group_jid = ?
+    `);
+    this.saveGroupsTransaction = this.database.transaction(
+      (instanceId, groups) => {
+        for (const group of groups) {
+          this.saveGroup(instanceId, group);
+        }
+      }
+    );
+    this.selectCaptureModeStatement = this.database.prepare(`
+      SELECT mode, updated_at
+      FROM whatsapp_capture_settings
+      WHERE instance_id = ?
+    `);
+    this.isCaptureTargetSelectedStatement = this.database.prepare(`
+      SELECT 1
+      FROM whatsapp_capture_targets
+      WHERE instance_id = ? AND chat_jid = ?
+    `);
+    this.replaceCaptureSettingsTransaction = this.database.transaction(
+      (instanceId, mode, targets, updatedAt) => {
+        this.database.prepare(`
+          INSERT INTO whatsapp_capture_settings (
+            instance_id, mode, retention_days, updated_at
+          )
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(instance_id) DO UPDATE SET
+            mode = excluded.mode,
+            retention_days = excluded.retention_days,
+            updated_at = excluded.updated_at
+        `).run(instanceId, mode, targets.retentionDays, updatedAt);
+        this.database.prepare(`
+          DELETE FROM whatsapp_capture_targets WHERE instance_id = ?
+        `).run(instanceId);
+        const insert = this.database.prepare(`
+          INSERT INTO whatsapp_capture_targets (
+            instance_id, chat_jid, target_type
+          ) VALUES (?, ?, ?)
+        `);
+        for (const target of targets.items) {
+          insert.run(instanceId, target.id, target.type);
+        }
+      }
+    );
+    this.clearInboxTransaction = this.database.transaction((instanceId) => {
+      const messages = this.database.prepare(`
+        DELETE FROM whatsapp_messages WHERE instance_id = ?
+      `).run(instanceId).changes;
+      const labels = this.database.prepare(`
+        DELETE FROM whatsapp_conversation_labels WHERE instance_id = ?
+      `).run(instanceId).changes;
+      return { messages, labels };
+    });
+    this.loadContactMappings();
     this.removeLegacyDuplicates();
     this.migrateLidChatsToPhoneJids();
     this.database.exec(`
@@ -464,6 +633,16 @@ class WhatsAppMessageStore {
         message_type,
         text,
         message_timestamp,
+        CASE
+          WHEN json_valid(raw_message)
+          THEN json_extract(raw_message, '$.pushName')
+          ELSE NULL
+        END AS push_name,
+        CASE
+          WHEN json_valid(raw_message)
+          THEN json_extract(raw_message, '$.verifiedBizName')
+          ELSE NULL
+        END AS verified_biz_name,
         captured_at
       FROM whatsapp_messages
       WHERE instance_id = ?
@@ -477,6 +656,176 @@ class WhatsAppMessageStore {
 
   getLidMappingKey(instanceId, lidJid) {
     return `${instanceId}\u0000${lidJid}`;
+  }
+
+  loadContactMappings() {
+    const mappings = this.database
+      .prepare(`
+        SELECT DISTINCT instance_id, lid_jid, phone_jid
+        FROM whatsapp_contacts
+        WHERE lid_jid IS NOT NULL AND phone_jid IS NOT NULL
+      `)
+      .all();
+
+    for (const mapping of mappings) {
+      if (isLidJid(mapping.lid_jid) && isPhoneJid(mapping.phone_jid)) {
+        this.lidToPhoneJid.set(
+          this.getLidMappingKey(mapping.instance_id, mapping.lid_jid),
+          mapping.phone_jid
+        );
+      }
+    }
+  }
+
+  saveContacts(instanceId, contacts) {
+    const validContacts = (contacts || []).filter(
+      (contact) => contact && typeof contact === "object"
+    );
+
+    if (!instanceId || !validContacts.length) {
+      return 0;
+    }
+
+    this.saveContactsTransaction(instanceId, validContacts);
+    return validContacts.length;
+  }
+
+  saveContact(instanceId, contact = {}) {
+    if (!instanceId) {
+      return false;
+    }
+
+    const id = String(contact.id || "").trim() || null;
+    const phoneJid = [contact.jid, id].find(isPhoneJid) || null;
+    const lidJid = [contact.lid, id].find(isLidJid) || null;
+
+    if (!id && !phoneJid && !lidJid) {
+      return false;
+    }
+
+    const aliases = [phoneJid, lidJid].filter(Boolean);
+    const lookupA = aliases[0] || id;
+    const lookupB = aliases[1] || lookupA;
+    const existing = this.selectContactAliasesStatement.all(
+      instanceId,
+      lookupA,
+      lookupB,
+      lookupA,
+      lookupB,
+      lookupA,
+      lookupB
+    );
+    const resolvedPhoneJid =
+      phoneJid || existing.find((row) => isPhoneJid(row.phone_jid))?.phone_jid || null;
+    const resolvedLidJid =
+      lidJid || existing.find((row) => isLidJid(row.lid_jid))?.lid_jid || null;
+    const savedName =
+      normalizeContactName(contact.name) ||
+      existing.find((row) => row.saved_name)?.saved_name ||
+      null;
+    const notifyName =
+      normalizeContactName(contact.notify) ||
+      existing.find((row) => row.notify_name)?.notify_name ||
+      null;
+    const verifiedName =
+      normalizeContactName(contact.verifiedName) ||
+      existing.find((row) => row.verified_name)?.verified_name ||
+      null;
+    const updatedAt = new Date().toISOString();
+    const contactJids = new Set(
+      [id, resolvedPhoneJid, resolvedLidJid].filter(Boolean)
+    );
+
+    for (const contactJid of contactJids) {
+      this.upsertContactStatement.run(
+        instanceId,
+        contactJid,
+        resolvedPhoneJid,
+        resolvedLidJid,
+        savedName,
+        notifyName,
+        verifiedName,
+        updatedAt
+      );
+    }
+
+    if (resolvedPhoneJid && resolvedLidJid) {
+      this.rememberPhoneJid(instanceId, resolvedLidJid, resolvedPhoneJid);
+    }
+
+    return true;
+  }
+
+  savePhoneNumberShare(instanceId, mapping = {}) {
+    if (!isLidJid(mapping.lid) || !isPhoneJid(mapping.jid)) {
+      return false;
+    }
+
+    return this.saveContact(instanceId, {
+      id: mapping.jid,
+      jid: mapping.jid,
+      lid: mapping.lid
+    });
+  }
+
+  getContactStats(instanceId) {
+    return this.database.prepare(`
+      WITH identities AS (
+        SELECT
+          COALESCE(phone_jid, lid_jid, contact_jid) AS identity_jid,
+          MAX(CASE WHEN saved_name IS NOT NULL THEN 1 ELSE 0 END) AS has_saved_name,
+          MAX(
+            CASE
+              WHEN saved_name IS NOT NULL
+                OR notify_name IS NOT NULL
+                OR verified_name IS NOT NULL
+              THEN 1
+              ELSE 0
+            END
+          ) AS has_name,
+          MAX(CASE WHEN phone_jid IS NOT NULL THEN 1 ELSE 0 END) AS has_phone
+        FROM whatsapp_contacts
+        WHERE instance_id = ?
+        GROUP BY COALESCE(phone_jid, lid_jid, contact_jid)
+      )
+      SELECT
+        COUNT(*) AS contactos,
+        COALESCE(SUM(has_saved_name), 0) AS nombresAgendados,
+        COALESCE(SUM(has_name), 0) AS contactosConNombre,
+        COALESCE(SUM(has_phone), 0) AS contactosConTelefono
+      FROM identities
+    `).get(instanceId);
+  }
+
+  saveGroups(instanceId, groups) {
+    const validGroups = (groups || []).filter(
+      (group) => group && typeof group === "object"
+    );
+
+    if (!instanceId || !validGroups.length) {
+      return 0;
+    }
+
+    this.saveGroupsTransaction(instanceId, validGroups);
+    return validGroups.length;
+  }
+
+  saveGroup(instanceId, group = {}) {
+    const groupJid = String(group.id || group.groupId || "").trim();
+    const subject = String(group.subject || group.nombre || "").trim();
+
+    if (!instanceId || !groupJid.endsWith("@g.us") || !subject) {
+      return false;
+    }
+
+    this.upsertGroupStatement.run(
+      instanceId,
+      groupJid,
+      subject,
+      String(group.desc || group.descripcion || "").trim() || null,
+      new Date().toISOString()
+    );
+    return true;
   }
 
   removeLegacyDuplicates() {
@@ -536,6 +885,18 @@ class WhatsAppMessageStore {
         WHERE instance_id = ? AND remote_jid = ?
       `)
       .run(phoneJid, instanceId, lidJid);
+    this.database.prepare(`
+      INSERT OR IGNORE INTO whatsapp_capture_targets (
+        instance_id, chat_jid, target_type
+      )
+      SELECT instance_id, ?, target_type
+      FROM whatsapp_capture_targets
+      WHERE instance_id = ? AND chat_jid = ?
+    `).run(phoneJid, instanceId, lidJid);
+    this.database.prepare(`
+      DELETE FROM whatsapp_capture_targets
+      WHERE instance_id = ? AND chat_jid = ?
+    `).run(instanceId, lidJid);
   }
 
   resolveRemoteJid(instanceId, message, overrides = {}) {
@@ -600,6 +961,32 @@ class WhatsAppMessageStore {
 
   saveMessage(instanceId, message, overrides = {}) {
     const messageId = message?.key?.id;
+    const rawRemoteJid = overrides.remoteJid || message?.key?.remoteJid;
+    const participantJid =
+      message?.key?.participantPn || message?.key?.participant || null;
+
+    if (rawRemoteJid && (message?.pushName || message?.verifiedBizName)) {
+      this.saveContact(instanceId, {
+        id: rawRemoteJid,
+        notify: message.pushName,
+        verifiedName: message.verifiedBizName
+      });
+    }
+
+    if (participantJid && (message?.pushName || message?.verifiedBizName)) {
+      this.saveContact(instanceId, {
+        id: participantJid,
+        jid: isPhoneJid(message?.key?.participantPn)
+          ? message.key.participantPn
+          : undefined,
+        lid: isLidJid(message?.key?.participant)
+          ? message.key.participant
+          : undefined,
+        notify: message.pushName,
+        verifiedName: message.verifiedBizName
+      });
+    }
+
     const remoteJid = this.resolveRemoteJid(instanceId, message, overrides);
 
     if (!instanceId || !messageId || !remoteJid || !message?.message) {
@@ -613,6 +1000,11 @@ class WhatsAppMessageStore {
       return false;
     }
 
+    const messageTimestamp = toUnixSeconds(message.messageTimestamp);
+    if (!this.shouldCaptureMessage(instanceId, remoteJid, messageTimestamp)) {
+      return false;
+    }
+
     const content = unwrapMessageContent(message.message);
     const direction =
       overrides.direction || (message.key.fromMe ? "enviado" : "recibido");
@@ -623,11 +1015,11 @@ class WhatsAppMessageStore {
       instanceId,
       messageId,
       remoteJid,
-      message.key.participantPn || message.key.participant || null,
+      participantJid,
       direction,
       getMessageType(content),
       text || null,
-      toUnixSeconds(message.messageTimestamp),
+      messageTimestamp,
       safeJsonStringify(message),
       new Date().toISOString()
     );
@@ -635,9 +1027,262 @@ class WhatsAppMessageStore {
     return true;
   }
 
-  getMessagesForRange(instanceId, startSeconds, endSeconds) {
-    return this.selectRangeStatement
-      .all(instanceId, startSeconds, endSeconds)
+  shouldCaptureMessage(instanceId, remoteJid, messageTimestamp) {
+    const setting = this.selectCaptureModeStatement.get(instanceId);
+    const mode = setting?.mode || "todo";
+    const effectiveFrom = setting?.updated_at
+      ? Math.floor(new Date(setting.updated_at).getTime() / 1000)
+      : null;
+
+    if (
+      Number.isFinite(effectiveFrom) &&
+      messageTimestamp < effectiveFrom
+    ) {
+      return false;
+    }
+
+    if (mode === "nada") {
+      return false;
+    }
+    if (mode === "todo") {
+      return true;
+    }
+    return Boolean(
+      this.isCaptureTargetSelectedStatement.get(instanceId, remoteJid)
+    );
+  }
+
+  getCaptureSettings(instanceId) {
+    const setting = this.database
+      .prepare(`
+        SELECT mode, retention_days, updated_at
+        FROM whatsapp_capture_settings
+        WHERE instance_id = ?
+      `)
+      .get(instanceId);
+    const selected = this.database
+      .prepare(`
+        SELECT chat_jid
+        FROM whatsapp_capture_targets
+        WHERE instance_id = ?
+        ORDER BY chat_jid
+      `)
+      .all(instanceId)
+      .map((row) => row.chat_jid);
+
+    return {
+      modo: setting?.mode || "todo",
+      seleccionados: selected,
+      retencionDias: setting?.retention_days ?? null,
+      actualizadoEn: setting?.updated_at || null
+    };
+  }
+
+  saveCaptureSettings(instanceId, mode, selected = [], retentionDays) {
+    const validModes = new Set(["todo", "seleccionados", "nada"]);
+    if (!validModes.has(mode)) {
+      const error = new Error("modo debe ser todo, seleccionados o nada");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!Array.isArray(selected)) {
+      const error = new Error("seleccionados debe ser una lista");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const targets = [...new Set(selected.map((value) => String(value).trim()))]
+      .filter(Boolean)
+      .map((id) => {
+        if (id.endsWith("@g.us")) {
+          return { id, type: "grupo" };
+        }
+        if (isPhoneJid(id) || isLidJid(id)) {
+          return { id, type: "contacto" };
+        }
+        const error = new Error(`destino de captura invalido: ${id}`);
+        error.statusCode = 400;
+        throw error;
+      });
+    const normalizedTargets = mode === "seleccionados" ? targets : [];
+    if (mode === "seleccionados" && normalizedTargets.length === 0) {
+      const error = new Error(
+        "debe seleccionar al menos un contacto o grupo"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+    const current = this.getCaptureSettings(instanceId);
+    let normalizedRetentionDays = retentionDays;
+    if (normalizedRetentionDays === undefined) {
+      normalizedRetentionDays = current.retencionDias;
+    }
+    if (normalizedRetentionDays !== null) {
+      normalizedRetentionDays = Number(normalizedRetentionDays);
+      if (
+        !Number.isInteger(normalizedRetentionDays) ||
+        normalizedRetentionDays < 1 ||
+        normalizedRetentionDays > 3650
+      ) {
+        const error = new Error(
+          "retencionDias debe ser null o un entero entre 1 y 3650"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+    const currentTargets = [...current.seleccionados].sort();
+    const nextTargets = normalizedTargets.map((target) => target.id).sort();
+    const policyChanged =
+      current.modo !== mode ||
+      currentTargets.length !== nextTargets.length ||
+      currentTargets.some((target, index) => target !== nextTargets[index]);
+    const updatedAt =
+      policyChanged || !current.actualizadoEn
+        ? new Date().toISOString()
+        : current.actualizadoEn;
+    this.replaceCaptureSettingsTransaction(
+      instanceId,
+      mode,
+      {
+        items: normalizedTargets,
+        retentionDays: normalizedRetentionDays
+      },
+      updatedAt
+    );
+    return this.getCaptureSettings(instanceId);
+  }
+
+  deleteExpiredMessages(now = new Date()) {
+    const nowSeconds = Math.floor(now.getTime() / 1000);
+    const settings = this.database.prepare(`
+      SELECT instance_id, retention_days
+      FROM whatsapp_capture_settings
+      WHERE retention_days IS NOT NULL
+    `).all();
+    const removeMessages = this.database.prepare(`
+      DELETE FROM whatsapp_messages
+      WHERE instance_id = ? AND message_timestamp < ?
+    `);
+    const removeOrphanLabels = this.database.prepare(`
+      DELETE FROM whatsapp_conversation_labels
+      WHERE instance_id = ?
+        AND NOT EXISTS (
+          SELECT 1
+          FROM whatsapp_messages
+          WHERE whatsapp_messages.instance_id = whatsapp_conversation_labels.instance_id
+            AND whatsapp_messages.remote_jid = whatsapp_conversation_labels.remote_jid
+        )
+    `);
+    const cleanup = this.database.transaction(() => {
+      const instances = [];
+      let total = 0;
+      for (const setting of settings) {
+        const cutoff = nowSeconds - setting.retention_days * 24 * 60 * 60;
+        const deleted = removeMessages.run(setting.instance_id, cutoff).changes;
+        removeOrphanLabels.run(setting.instance_id);
+        total += deleted;
+        instances.push({
+          instancia: setting.instance_id,
+          retencionDias: setting.retention_days,
+          mensajesEliminados: deleted
+        });
+      }
+      return { mensajesEliminados: total, instancias: instances };
+    });
+    return cleanup();
+  }
+
+  clearInbox(instanceId) {
+    const deleted = this.clearInboxTransaction(instanceId);
+    return {
+      instancia: instanceId,
+      mensajesEliminados: deleted.messages,
+      etiquetasEliminadas: deleted.labels
+    };
+  }
+
+  getCaptureTargets(instanceId) {
+    const contactsById = new Map();
+    const contacts = this.database.prepare(`
+      SELECT contact_jid, phone_jid, lid_jid, saved_name, notify_name, verified_name
+      FROM whatsapp_contacts
+      WHERE instance_id = ?
+    `).all(instanceId);
+
+    for (const contact of contacts) {
+      const id = contact.phone_jid || contact.lid_jid || contact.contact_jid;
+      if (!isPhoneJid(id) && !isLidJid(id)) {
+        continue;
+      }
+      const current = contactsById.get(id) || { id, tipo: "contacto" };
+      current.nombreAgendado ||= contact.saved_name || null;
+      current.nombrePerfil ||=
+        contact.verified_name || contact.notify_name || null;
+      current.nombre ||= current.nombreAgendado || current.nombrePerfil || null;
+      contactsById.set(id, current);
+    }
+
+    const groups = this.database.prepare(`
+      SELECT group_jid AS id, subject AS nombre
+      FROM whatsapp_groups
+      WHERE instance_id = ?
+      ORDER BY subject COLLATE NOCASE, group_jid
+    `).all(instanceId).map((group) => ({ ...group, tipo: "grupo" }));
+
+    return {
+      contactos: [...contactsById.values()].sort((left, right) =>
+        String(left.nombre || left.id).localeCompare(
+          String(right.nombre || right.id),
+          "es"
+        )
+      ),
+      grupos: groups
+    };
+  }
+
+  getMessagesForRange(instanceId, startSeconds, endSeconds, chatIds = []) {
+    const normalizedChatIds = [
+      ...new Set(
+        (Array.isArray(chatIds) ? chatIds : [chatIds])
+          .map((chatId) => String(chatId || "").trim())
+          .filter(Boolean)
+      )
+    ];
+    const statement = normalizedChatIds.length
+      ? this.database.prepare(`
+          SELECT
+            message_id,
+            remote_jid,
+            participant_jid,
+            direction,
+            message_type,
+            text,
+            message_timestamp,
+            CASE
+              WHEN json_valid(raw_message)
+              THEN json_extract(raw_message, '$.pushName')
+              ELSE NULL
+            END AS push_name,
+            CASE
+              WHEN json_valid(raw_message)
+              THEN json_extract(raw_message, '$.verifiedBizName')
+              ELSE NULL
+            END AS verified_biz_name,
+            captured_at
+          FROM whatsapp_messages
+          WHERE instance_id = ?
+            AND message_timestamp >= ?
+            AND message_timestamp < ?
+            AND remote_jid <> 'status@broadcast'
+            AND remote_jid NOT LIKE '%@newsletter'
+            AND remote_jid IN (${normalizedChatIds.map(() => "?").join(", ")})
+          ORDER BY message_timestamp ASC, message_id ASC
+        `)
+      : this.selectRangeStatement;
+
+    return statement
+      .all(instanceId, startSeconds, endSeconds, ...normalizedChatIds)
       .map((row) => ({
         id: row.message_id,
         chat: row.remote_jid,
@@ -645,6 +1290,7 @@ class WhatsAppMessageStore {
         direccion: row.direction,
         tipo: row.message_type,
         texto: row.text,
+        nombrePerfil: row.verified_biz_name || row.push_name || null,
         timestamp: row.message_timestamp,
         fecha: new Date(row.message_timestamp * 1000).toISOString(),
         capturadoEn: row.captured_at
@@ -673,14 +1319,15 @@ class WhatsAppMessageStore {
 
   getMessages(
     instanceId,
-    { from, to, now = new Date(), timeZone = DEFAULT_TIME_ZONE } = {}
+    { from, to, chatIds = [], now = new Date(), timeZone = DEFAULT_TIME_ZONE } = {}
   ) {
     const today = getDayWindow(now, timeZone).date;
     const range = getDateRangeWindow(from || today, to || from || today, timeZone);
     const messages = this.getMessagesForRange(
       instanceId,
       range.startSeconds,
-      range.endSeconds
+      range.endSeconds,
+      chatIds
     );
 
     const report = buildMessageReport(instanceId, messages, range, timeZone);
@@ -701,6 +1348,59 @@ class WhatsAppMessageStore {
         }])
     );
     report.conversaciones.forEach((conversation) => {
+      const group = conversation.esGrupo
+        ? this.selectGroupStatement.get(instanceId, conversation.chat)
+        : null;
+      const contact = this.selectContactStatement.get(
+        instanceId,
+        conversation.chat,
+        conversation.chat,
+        conversation.chat
+      );
+      const phoneJid = isPhoneJid(conversation.chat)
+        ? conversation.chat
+        : contact?.phone_jid;
+
+      if (conversation.esGrupo) {
+        conversation.nombreGrupo = group?.subject || null;
+        conversation.nombre = conversation.nombreGrupo;
+        conversation.mensajes.forEach((message) => {
+          if (!message.participante) return;
+          const participantContact = this.selectContactStatement.get(
+            instanceId,
+            message.participante,
+            message.participante,
+            message.participante
+          );
+          const participantPhoneJid = isPhoneJid(message.participante)
+            ? message.participante
+            : participantContact?.phone_jid;
+          message.telefonoParticipante = participantPhoneJid
+            ? getChatNumber(participantPhoneJid)
+            : null;
+          message.nombreParticipante =
+            participantContact?.saved_name ||
+            participantContact?.verified_name ||
+            participantContact?.notify_name ||
+            message.nombrePerfil ||
+            null;
+        });
+      } else {
+        conversation.esLid = isLidJid(conversation.chat) && !phoneJid;
+        conversation.telefono = phoneJid ? getChatNumber(phoneJid) : null;
+        if (phoneJid) {
+          conversation.numero = conversation.telefono;
+        }
+        conversation.nombreAgendado = contact?.saved_name || null;
+        conversation.nombrePerfil =
+          contact?.verified_name ||
+          contact?.notify_name ||
+          conversation.mensajes.find((message) => message.nombrePerfil)
+            ?.nombrePerfil ||
+          null;
+        conversation.nombre =
+          conversation.nombreAgendado || conversation.nombrePerfil || null;
+      }
       conversation.etiqueta = labels.get(conversation.chat) || null;
     });
     return report;
@@ -747,6 +1447,7 @@ module.exports = {
   getMessageText,
   getMessageType,
   getPhoneJidFromMessageKey,
+  isLidJid,
   isPhoneJid,
   toUnixSeconds,
   unwrapMessageContent

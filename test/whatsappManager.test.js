@@ -109,6 +109,21 @@ test("registra instancias unicas y persiste solo configuracion", async (t) => {
   assert.equal(registry.instancias[0].numero, "5492245558702");
 });
 
+test("ejecuta la limpieza inicial una sola vez al abrir el almacenamiento", () => {
+  let cleanupCalls = 0;
+  const messageStore = {
+    deleteExpiredMessages: () => {
+      cleanupCalls += 1;
+      return { mensajesEliminados: 0, instancias: [] };
+    }
+  };
+  const manager = new WhatsAppManager({ messageStore });
+
+  assert.equal(manager.getMessageStore(), messageStore);
+  assert.equal(manager.getMessageStore(), messageStore);
+  assert.equal(cleanupCalls, 1);
+});
+
 test("registra todas las instancias antes de iniciar sus conexiones", async (t) => {
   const temporaryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), "mensajeria-wa-boot-")
@@ -230,6 +245,9 @@ test("activa history y procesa sus mensajes ademas de messages.upsert", async (t
   );
   const emitter = new EventEmitter();
   const captured = [];
+  const capturedContacts = [];
+  const capturedMappings = [];
+  const capturedGroups = [];
   let socketOptions;
   const socket = {
     ev: {
@@ -256,6 +274,24 @@ test("activa history y procesa sus mensajes ademas de messages.upsert", async (t
     saveMessage: (instanceId, message) => {
       captured.push({ instanceId, id: message.key.id });
       return true;
+    },
+    saveContacts: (instanceId, contacts) => {
+      capturedContacts.push({
+        instanceId,
+        ids: (contacts || []).map((contact) => contact.id)
+      });
+      return contacts?.length || 0;
+    },
+    savePhoneNumberShare: (instanceId, mapping) => {
+      capturedMappings.push({ instanceId, ...mapping });
+      return true;
+    },
+    saveGroups: (instanceId, groups) => {
+      capturedGroups.push({
+        instanceId,
+        subjects: (groups || []).map((group) => group.subject)
+      });
+      return groups?.length || 0;
     }
   };
   const instance = new WhatsAppInstance(manager, {
@@ -274,17 +310,145 @@ test("activa history y procesa sus mensajes ademas de messages.upsert", async (t
   assert.equal(socketOptions.syncFullHistory, true);
   assert.equal(emitter.listenerCount("messaging-history.set"), 1);
   assert.equal(emitter.listenerCount("messages.upsert"), 1);
+  assert.equal(emitter.listenerCount("contacts.upsert"), 1);
+  assert.equal(emitter.listenerCount("contacts.update"), 1);
+  assert.equal(emitter.listenerCount("chats.phoneNumberShare"), 1);
+  assert.equal(emitter.listenerCount("groups.update"), 1);
 
   const message = {
     key: { id: "MENSAJE-1", remoteJid: "123@lid", fromMe: false },
     message: { conversation: "Hola" }
   };
-  emitter.emit("messaging-history.set", { messages: [message] });
+  emitter.emit("messaging-history.set", {
+    messages: [message],
+    contacts: [{ id: "5491111111111@s.whatsapp.net", name: "Cliente" }]
+  });
   emitter.emit("messages.upsert", { messages: [message], type: "notify" });
+  emitter.emit("contacts.upsert", [
+    { id: "5492222222222@s.whatsapp.net", name: "Proveedor" }
+  ]);
+  emitter.emit("contacts.update", [
+    { id: "5492222222222@s.whatsapp.net", notify: "Perfil" }
+  ]);
+  emitter.emit("chats.phoneNumberShare", {
+    lid: "123@lid",
+    jid: "5493333333333@s.whatsapp.net"
+  });
+  emitter.emit("groups.update", [
+    { id: "120363123456789012@g.us", subject: "Clientes mayoristas" }
+  ]);
 
   assert.deepEqual(captured, [
     { instanceId: "PERSONAL", id: "MENSAJE-1" },
     { instanceId: "PERSONAL", id: "MENSAJE-1" }
+  ]);
+  assert.deepEqual(capturedContacts, [
+    { instanceId: "PERSONAL", ids: ["5491111111111@s.whatsapp.net"] },
+    { instanceId: "PERSONAL", ids: ["5492222222222@s.whatsapp.net"] },
+    { instanceId: "PERSONAL", ids: ["5492222222222@s.whatsapp.net"] }
+  ]);
+  assert.deepEqual(capturedMappings, [
+    {
+      instanceId: "PERSONAL",
+      lid: "123@lid",
+      jid: "5493333333333@s.whatsapp.net"
+    }
+  ]);
+  assert.deepEqual(capturedGroups, [
+    {
+      instanceId: "PERSONAL",
+      subjects: ["Clientes mayoristas"]
+    }
+  ]);
+});
+
+test("resincroniza contactos desde una instantanea y conserva la sesion", async () => {
+  const previousState = { version: 48, hash: "estado-anterior" };
+  const writes = [];
+  const resyncCalls = [];
+  let flushCalls = 0;
+  const instance = new WhatsAppInstance(
+    {
+      instancesDir: "unused",
+      getContactStats: () => ({
+        contactos: 12,
+        nombresAgendados: 10,
+        contactosConNombre: 11,
+        contactosConTelefono: 9
+      })
+    },
+    {
+      id: "VENTAS",
+      nombre: "VENTAS",
+      numero: "5492245558701",
+      createdAt: new Date().toISOString()
+    }
+  );
+  instance.status = "conectado";
+  instance.connectedNumber = "5492245558701";
+  instance.authState = {
+    keys: {
+      get: async () => ({ critical_unblock_low: previousState }),
+      set: async (value) => writes.push(value)
+    }
+  };
+  instance.socket = {
+    ev: {
+      flush: () => {
+        flushCalls += 1;
+      }
+    },
+    resyncAppState: async (collections, initial) => {
+      resyncCalls.push({ collections, initial });
+    }
+  };
+
+  const result = await instance.resyncContacts();
+
+  assert.deepEqual(writes, [
+    { "app-state-sync-version": { critical_unblock_low: null } }
+  ]);
+  assert.deepEqual(resyncCalls, [
+    { collections: ["critical_unblock_low"], initial: true }
+  ]);
+  assert.equal(result.contactosConNombre, 11);
+  assert.equal(flushCalls, 1);
+  assert.equal(instance.status, "conectado");
+});
+
+test("restaura el estado de contactos si falla la resincronizacion", async () => {
+  const previousState = { version: 48, hash: "estado-anterior" };
+  const writes = [];
+  const instance = new WhatsAppInstance(
+    { instancesDir: "unused" },
+    {
+      id: "VENTAS",
+      nombre: "VENTAS",
+      numero: "5492245558701",
+      createdAt: new Date().toISOString()
+    }
+  );
+  instance.status = "conectado";
+  instance.connectedNumber = "5492245558701";
+  instance.authState = {
+    keys: {
+      get: async () => ({ critical_unblock_low: previousState }),
+      set: async (value) => writes.push(value)
+    }
+  };
+  instance.socket = {
+    resyncAppState: async () => {
+      throw new Error("snapshot no disponible");
+    }
+  };
+
+  await assert.rejects(
+    instance.resyncContacts(),
+    /WhatsApp no pudo resincronizar los contactos/
+  );
+  assert.deepEqual(writes, [
+    { "app-state-sync-version": { critical_unblock_low: null } },
+    { "app-state-sync-version": { critical_unblock_low: previousState } }
   ]);
 });
 

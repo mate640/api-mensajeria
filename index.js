@@ -57,6 +57,16 @@ app.get("/", async (req, res, next) => {
           grupos: "/whatsapp/grupos",
           mensajesHoy:
             "/whatsapp/instancias/:id/mensajes-hoy",
+          mensajes:
+            "/whatsapp/instancias/:id/mensajes?desde=AAAA-MM-DD&hasta=AAAA-MM-DD&chatId=JID",
+          chatsGuardados:
+            "/whatsapp/instancias/:id/chats",
+          configuracionRegistro:
+            "/whatsapp/instancias/:id/configuracion-registro",
+          vaciarBandeja:
+            "/whatsapp/instancias/:id/mensajes",
+          resincronizarContactos:
+            "/whatsapp/instancias/:id/resincronizar-contactos",
           modelosIa: "/whatsapp/modelos-ia",
           analizarBandeja:
             "/whatsapp/instancias/:id/analizar-bandeja",

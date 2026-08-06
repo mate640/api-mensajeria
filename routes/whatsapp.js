@@ -405,17 +405,113 @@ router.get(
 );
 
 router.get(
-  "/instancias/:id/mensajes",
+  "/instancias/:id/configuracion-registro",
+  requireMultiInstanceMode,
+  (req, res, next) => {
+    try {
+      const instance = whatsappManager.requireInstance(req.params.id);
+      res.json({ ok: true, ...instance.getCaptureConfiguration() });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.put(
+  "/instancias/:id/configuracion-registro",
   requireMultiInstanceMode,
   (req, res, next) => {
     try {
       const instance = whatsappManager.requireInstance(req.params.id);
       res.json({
         ok: true,
+        ...instance.saveCaptureConfiguration({
+          modo: req.body?.modo,
+          seleccionados: req.body?.seleccionados,
+          retencionDias: req.body?.retencionDias
+        })
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.delete(
+  "/instancias/:id/mensajes",
+  requireMultiInstanceMode,
+  (req, res, next) => {
+    try {
+      const instance = whatsappManager.requireInstance(req.params.id);
+      if (req.body?.confirmacion !== instance.record.id) {
+        const error = new Error(
+          `Para vaciar la bandeja debe confirmar con ${instance.record.id}`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+      res.json({ ok: true, ...instance.clearInbox() });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get(
+  "/instancias/:id/chats",
+  requireMultiInstanceMode,
+  (req, res, next) => {
+    try {
+      const instance = whatsappManager.requireInstance(req.params.id);
+      res.json({
+        ok: true,
+        instancia: instance.record.id,
+        ...instance.getStoredChats()
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get(
+  "/instancias/:id/mensajes",
+  requireMultiInstanceMode,
+  (req, res, next) => {
+    try {
+      const instance = whatsappManager.requireInstance(req.params.id);
+      const rawChatIds = req.query.chatId;
+      const chatIds = (Array.isArray(rawChatIds) ? rawChatIds : [rawChatIds])
+        .map((chatId) => String(chatId || "").trim())
+        .filter(Boolean);
+      if (chatIds.length > 100) {
+        const error = new Error("Se pueden consultar hasta 100 chats por solicitud");
+        error.statusCode = 400;
+        throw error;
+      }
+      res.json({
+        ok: true,
         ...instance.getMessages({
           from: req.query.desde,
-          to: req.query.hasta
+          to: req.query.hasta,
+          chatIds
         })
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  "/instancias/:id/resincronizar-contactos",
+  requireMultiInstanceMode,
+  async (req, res, next) => {
+    try {
+      const instance = whatsappManager.requireInstance(req.params.id);
+      res.json({
+        ok: true,
+        ...(await instance.resyncContacts())
       });
     } catch (error) {
       next(error);
